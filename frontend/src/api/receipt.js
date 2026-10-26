@@ -196,6 +196,8 @@ export function buildCustomerTemplate(org = {}) {
     blockStyles: {
       ...blockStyles,
       restaurantName: { size: "large", align: "center", weight: "bold" },
+      address: { ...blockStyles.address, align: "center" },
+      phone: { ...blockStyles.phone, align: "center" },
       orderNumber: { size: "standard", align: "center", weight: "bold" },
       dateTime: { size: "standard", align: "center", weight: "bold" },
       total: { size: "xlarge", align: "left", weight: "standard" },

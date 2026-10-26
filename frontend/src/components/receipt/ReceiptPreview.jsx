@@ -1,5 +1,5 @@
 import { createContext, Fragment, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { groupReceiptItems, normalizeSeparator, receiptStaffLabel } from "./receiptLayout";
+import { groupReceiptItems, normalizeSeparator, rasterRuleGeometry, receiptStaffLabel } from "./receiptLayout";
 import { webFormat } from "../../utils/webTime";
 import { CHEF_DEFAULT_BLOCK_STYLES, CUSTOMER_BLOCKS, KITCHEN_BLOCKS, normalizeLineSpacing } from "../../api/receipt";
 import { orderedBlocks, customerReceiptBlocks } from "../../pages/settings/receiptBlockOrder";
@@ -199,8 +199,13 @@ function blockClass(block, styles) {
 const SeparatorContext = createContext({ pattern: "dashed", weight: "thin" });
 function ReceiptRule({ solid = false }) {
   const separator = useContext(SeparatorContext);
+  const rule = rasterRuleGeometry(separator, separator.paperSize);
   return <div className={`receipt-preview__rule ${solid ? "is-solid" : ""}`} data-separator-pattern={separator.pattern}
-    data-separator-weight={separator.weight} aria-hidden="true">{separator.pattern === "stars" ? "* ".repeat(50) : null}</div>;
+    data-separator-weight={separator.weight} aria-hidden="true">{separator.pattern === "stars" ? "* ".repeat(50) : (
+      <svg className="receipt-preview__raster-rule" viewBox={`0 0 ${rule.width} ${rule.thickness}`}>
+        <path d={rule.path} fill="#000" />
+      </svg>
+    )}</div>;
 }
 
 function tableColumnStyle(fontSize, items, showSums = true) {
@@ -315,7 +320,10 @@ function CustomerReceipt({ template = {}, org, order }) {
     else if (block === "restaurantName") push("header", <div className={`receipt-preview__brand ${cls}`} style={{ fontSize: { standard: 23.33, large: 35, xlarge: 58.33 }[styles.restaurantName?.size || "large"], fontWeight: styles.restaurantName?.weight === "standard" ? 400 : 700 }} key="rn">{restaurantName}</div>);
     else if (block === "orderNumber") { if (!showTopNumber) infoRow("orderNumber", "Номер заказа:", getOrderNumber(order)); infoRow("orderNumber", "Тип заказа:", formatReceiptOrderType(order.order_type)); }
     else if (block === "table") infoRow("table", "Номер стола:", order.table_number);
-    else if (block === "waiter") infoRow("waiter", `${receiptStaffLabel(order)}:`, order.waiter);
+    else if (block === "waiter") {
+      const staff = order.receipt_staff?.length ? order.receipt_staff : [{ label: receiptStaffLabel(order), name: order.waiter }];
+      staff.forEach(person => infoRow("waiter", `${person.label}:`, person.name));
+    }
     else if (block === "dateTime") infoRow("dateTime", "Дата:", formatCustomerDate(order.created_at));
     else if (block === "items") push("items", <div className={cls} key="items"><CustomerItems items={order.items || []} styles={styles} /></div>);
     else if (block === "paymentMethod") { if (payments.length) push("payment", <div className={cls} key="pay"><PaymentRows rows={payments} /></div>); }
@@ -328,8 +336,8 @@ function CustomerReceipt({ template = {}, org, order }) {
         <b className="receipt-preview__bottomnum-value" style={{ fontSize: { standard: 35, large: 70, xlarge: 131.25, xxlarge: 160.42 }[styles.bottomOrderNumber?.size || "large"], fontWeight: styles.bottomOrderNumber?.weight === "bold" ? 700 : 400 }}>{getOrderNumber(order)}</b>
       </div>
     ));
-    else if (block === "address") { const v = template.address || org?.address; if (hasValue(v)) push("footer", <b key="addr">{v}</b>); }
-    else if (block === "phone") { const v = template.phone || org?.phone; if (hasValue(v)) push("footer", <b key="ph">{v}</b>); }
+    else if (block === "address") { const v = template.address || org?.address; if (hasValue(v)) push("footer", <b key="addr" style={{ justifySelf: "stretch", textAlign: "center" }}>{v}</b>); }
+    else if (block === "phone") { const v = template.phone || org?.phone; if (hasValue(v)) push("footer", <b key="ph" style={{ justifySelf: "stretch", textAlign: "center" }}>{v}</b>); }
   }
   if (!summaryDone) renderSummary(); // total block missing from a legacy order
 
@@ -410,8 +418,8 @@ export function computeFitScale(natW, availW) {
 // там лучше прокрутка, чем крошечная бумажка.
 export const FIT_MIN_HEIGHT_SCALE = 0.72;
 
-export function computeFitHeightScale(natW, availW, natH, availH) {
-  const widthScale = computeFitScale(natW, availW);
+export function computeFitHeightScale(natW, availW, natH, availH, { minScale = FIT_MIN_HEIGHT_SCALE, maxScale = 1 } = {}) {
+  const widthScale = Math.min(computeFitScale(natW, availW), maxScale);
   if (!natH || !availH || availH <= 0) return widthScale;
   // Рамку (FIT_PAD_*) масштаб не трогает — она входит в высоту как есть,
   // поэтому вычитаем её из доступной высоты, а не прибавляем к бумаге.
@@ -419,7 +427,7 @@ export function computeFitHeightScale(natW, availW, natH, availH) {
   if (usableH <= 0) return widthScale;
   const heightScale = usableH / natH;
   if (heightScale >= widthScale) return widthScale;
-  return Math.max(heightScale, Math.min(widthScale, FIT_MIN_HEIGHT_SCALE));
+  return Math.max(heightScale, Math.min(widthScale, minScale));
 }
 
 function itemMoneyValue(item) {
@@ -600,7 +608,10 @@ export default function ReceiptPreview({ type = "customer", template = {}, org, 
       const natW = inner ? inner.offsetWidth : content.offsetWidth;
       if (!natH || !natW || availW <= 0) return;
       const scale = fitToHeight
-        ? computeFitHeightScale(natW, availW, natH, availH)
+        ? computeFitHeightScale(natW, availW, natH, availH,
+          // This viewer must contain the WHOLE paper, even below the normal
+          // readable floor. Settings and boolean fitToHeight keep their defaults.
+          fitToHeight === "contain" ? { minScale: 0, maxScale: 0.85 } : undefined)
         : computeFitScale(natW, availW);
       setFit((prev) => (Math.abs(prev.scale - scale) < 0.004 && prev.width === natW && prev.height === natH)
         ? prev
@@ -614,7 +625,7 @@ export default function ReceiptPreview({ type = "customer", template = {}, org, 
   }, [fitPane, fitToHeight, template, type, order, org]);
 
   const receiptNode = (
-    <SeparatorContext.Provider value={normalizeSeparator(template.separator)}><div
+    <SeparatorContext.Provider value={{ ...normalizeSeparator(template.separator), paperSize }}><div
       className={`receipt-preview receipt-preview--${type} receipt-preview--${paperSize}mm`}
       data-paper-size={paperSize}
       data-line-spacing={normalizeLineSpacing(template.lineSpacing, type === "kitchen" ? "medium" : "large")}

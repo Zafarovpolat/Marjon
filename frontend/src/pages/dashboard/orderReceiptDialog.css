@@ -10,12 +10,14 @@
   z-index: 100050;
   display: grid;
   place-items: center;
-  /* Чек высокий: узкие поля по краям отдают окну почти всю высоту экрана —
-     чем выше окно, тем крупнее чек в нём (масштаб считается по высоте). */
+  overflow: hidden;
+  scrollbar-width: none;
+  overscroll-behavior: contain;
   padding: 12px;
   background: rgba(2, 8, 23, 0.54);
   backdrop-filter: blur(5px);
 }
+.receipt-dialog-backdrop::-webkit-scrollbar { display: none; width: 0; height: 0; }
 /* Затемнение анимирует ОБЩЕЕ семейство owner-modal-motion (220ms,
    body.dashboard-body .owner-modal-motion.is-motion-ready…): свои правила для
    backdrop здесь были бы перебиты и просто дублировали бы длительность.
@@ -25,11 +27,12 @@
 .receipt-dialog {
   display: flex;
   flex-direction: column;
-  width: min(540px, 100%);
-  /* Фиксированная высота: превью считает масштаб чека от неё (fitToHeight),
-     и «резиновое» окно дало бы петлю «чек меньше → окно меньше → чек ещё
-     меньше». Чек вписывается по высоте, очень длинный — прокручивается. */
-  height: min(88dvh, 900px);
+  flex: none;
+  width: min(480px, 100%);
+  /* A stable viewport-bound height lets the paper fit without a feedback
+     loop between receipt scale and panel height. Both edges stay on screen. */
+  height: min(92dvh, 900px);
+  max-height: calc(100dvh - 24px);
   border-radius: 22px;
   background: #fff;
   box-shadow: none;
@@ -78,6 +81,7 @@
 }
 
 .receipt-dialog__head {
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -146,9 +150,10 @@
   flex-direction: column;
   background: #f4f8fd;
 }
-/* Fit-оболочка чека тянется на всю высоту тела, внутри скроллится сам чек. */
+/* The available body height drives a strict contain-scale for the paper. */
 .receipt-dialog__body > .receipt-preview-shell {
   flex: 1 1 auto;
+  height: 100%;
   min-height: 0;
   /* В модалке внешние отступы оболочки (22px на странице настроек) съедали
      высоту и заставляли чек прокручиваться. Здесь хватает узкой рамки. */
@@ -158,7 +163,7 @@
 /* Короткий чек стоит по центру окна, а не липнет к верхнему краю. Auto-margin,
    а не justify-content: center — он не обрезает начало длинного чека. */
 .receipt-dialog__body .receipt-fit-frame {
-  margin-block: auto;
+  margin: auto;
 }
 /* Плоская бумага: в окне чек лежит на ровном фоне, без тени, которая
    проявлялась при наведении на панель. На странице настроек тень остаётся.
@@ -167,28 +172,18 @@
 .receipt-dialog .receipt-dialog__body.receipt-settings-page .receipt-preview {
   filter: none;
 }
-/* Страница настроек прячет полосу прокрутки (там чек виден целиком), но в
-   модалке чек может не влезть — без видимой полосы низ чека выглядел обрезанным.
-   Возвращаем тонкую полосу только здесь. */
+/* The complete paper fits here, so neither the panel nor receipt scrolls. */
 .receipt-dialog .receipt-dialog__body .receipt-fit-viewport {
-  /* На узких экранах receiptSettings.css снимает прокрутку (overflow: visible):
-     в модалке это обернулось бы обрезанным чеком без возможности долистать,
-     поэтому здесь прокрутка закреплена явно. */
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(15, 35, 60, 0.28) transparent;
-  padding-right: 2px;
+  flex: 1 1 auto;
+  height: auto;
+  overflow: hidden;
+  scrollbar-width: none;
+  padding-right: 0;
 }
-.receipt-dialog__body .receipt-fit-viewport::-webkit-scrollbar { width: 8px; height: 0; }
-.receipt-dialog__body .receipt-fit-viewport::-webkit-scrollbar-track { background: transparent; }
-.receipt-dialog__body .receipt-fit-viewport::-webkit-scrollbar-thumb {
-  border: 2px solid transparent;
-  border-radius: 8px;
-  background: rgba(15, 35, 60, 0.26) padding-box;
-}
-.receipt-dialog__body .receipt-fit-viewport::-webkit-scrollbar-thumb:hover {
-  background: rgba(15, 35, 60, 0.4) padding-box;
+.receipt-dialog .receipt-dialog__body .receipt-fit-viewport::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 .receipt-dialog__state {
   flex: 1 1 auto;
@@ -218,5 +213,5 @@
 
 @media (max-width: 560px) {
   .receipt-dialog-backdrop { padding: 12px; }
-  .receipt-dialog { height: min(92dvh, 900px); border-radius: 18px; }
+  .receipt-dialog { border-radius: 18px; }
 }

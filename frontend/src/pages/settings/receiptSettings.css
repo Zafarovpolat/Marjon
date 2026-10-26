@@ -1427,10 +1427,7 @@
 .receipt-settings-page .receipt-preview[data-separator-pattern] .receipt-preview__item-row,
 .receipt-settings-page .receipt-preview[data-separator-pattern] .receipt-preview__summary-row { border-top: 0; }
 .receipt-settings-page .receipt-preview[data-separator-pattern] .receipt-preview__rule {
-  border-top: var(--receipt-rule-width) dashed #161616;
-}
-.receipt-settings-page .receipt-preview[data-separator-pattern="solid"] .receipt-preview__rule {
-  border-top-style: solid;
+  border: 0;
 }
 .receipt-settings-page .receipt-preview[data-separator-pattern="stars"] .receipt-preview__rule {
   height: 14px; margin: 4px 0; border: 0; overflow: hidden; white-space: nowrap;

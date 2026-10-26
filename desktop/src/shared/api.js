@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { DEFAULT_SERVER_URL, normalizeServerUrl } from './config'
 import { submitOrderPayment } from './orderPayments.mjs'
+import { resolveOrderCreate } from './orderValidation.mjs'
 
 // Нормализуем на чтении: в localStorage у уже установленных терминалов может
 // лежать адрес без /api/v1 (введён вручную до появления нормализации) — без
@@ -300,7 +301,13 @@ export const printers = {
 export const orders = {
   list: (params) => cached('orders_' + (params?.branch_id || 'all'), api.get('/pos/orders', { params }).then((r) => r.data)),
   get: (id) => api.get(`/pos/orders/${id}`).then((r) => r.data),
-  create: (data) => api.post('/pos/orders', data).then((r) => r.data),
+  create: async (data) => {
+    const payload = await resolveOrderCreate(data, {
+      loadHalls: () => api.get('/halls').then(r => r.data),
+      loadBranches: () => companies.branches(),
+    })
+    return api.post('/pos/orders', payload).then(r => r.data)
+  },
   update: (id, data) => api.patch(`/pos/orders/${id}`, data).then((r) => r.data),
   addItem: (orderId, data) => api.post(`/pos/orders/${orderId}/items`, data).then((r) => r.data),
   // reason — причина удаления (журналируется на бэкенде: кто/когда/почему удалил позицию)

@@ -109,6 +109,11 @@ class OrderItemResponse(BaseResponseSchema):
     cancelled_by_id: UUID | None = None
 
 
+class ReceiptStaffResponse(BaseSchema):
+    label: str
+    name: str
+
+
 class OrderResponse(BaseResponseSchema):
     company_id: UUID
     branch_id: UUID
@@ -131,6 +136,7 @@ class OrderResponse(BaseResponseSchema):
     receipt_printed_at: datetime | None = None
     waiter_id: UUID | None = None
     waiter_name: str | None = None
+    receipt_staff: list[ReceiptStaffResponse] = Field(default_factory=list)
     cancel_comment: str | None = None
     items: list[OrderItemResponse] = Field(default_factory=list)
     # Phase 1A cancellation truth (additive, nullable).

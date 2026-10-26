@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { displayMessage } from '../shared/errorMessage.mjs'
 
 /**
  * Тосты — короткие уведомления ВНИЗУ экрана (вместо alert-окон).
@@ -9,7 +10,7 @@ import { useEffect, useState } from 'react'
  * toast('Текст', 'ok')     — успех (зелёный)
  */
 export function toast(message, kind = 'error') {
-  window.dispatchEvent(new CustomEvent('marjon:toast', { detail: { message, kind } }))
+  window.dispatchEvent(new CustomEvent('marjon:toast', { detail: { message: displayMessage(message), kind } }))
 }
 
 let seq = 0
@@ -22,7 +23,7 @@ export default function ToastHost() {
       const id = ++seq
       const { message, kind } = e.detail || {}
       if (!message) return
-      setItems((prev) => [...prev.slice(-3), { id, message, kind: kind || 'error' }])
+      setItems((prev) => [...prev.slice(-3), { id, message: displayMessage(message), kind: kind || 'error' }])
       setTimeout(() => setItems((prev) => prev.filter((i) => i.id !== id)), 4500)
     }
     window.addEventListener('marjon:toast', onToast)

@@ -11,7 +11,7 @@ import { getCustomerTemplate } from "../../api/receipt";
 // сохранённый шаблон компании), и уходит с анимацией, а не мгновенно.
 
 vi.mock("../../context/OrgContext", () => ({
-  useOrg: () => ({ org: { name: "MARJON", address: "Ташкент", phone: "+998 90 000 00 00" } }),
+  useOrg: () => ({ org: { name: "MARJON", logo: "https://cdn.test/logo.png", address: "Ташкент", phone: "+998 90 000 00 00" } }),
 }));
 vi.mock("../../components/Icon", () => ({ default: () => <span aria-hidden="true" /> }));
 vi.mock("../../api/orders", () => ({ ordersService: { get: vi.fn() } }));
@@ -82,6 +82,19 @@ describe("Order receipt dialog on the dashboard orders table", () => {
     });
   });
 
+  it("keeps both staff rows returned by the real order API", async () => {
+    ordersService.get.mockResolvedValue({ data: { ...ORDER, receipt_staff: [
+      { label: "Кассир", name: "Азиз" }, { label: "Официант", name: "Абдулазиз" },
+    ] } });
+    renderDialog();
+    fireEvent.click(orderRow());
+    const dialog = await findReceipt();
+    expect(await within(dialog).findByText("Кассир:")).toBeInTheDocument();
+    expect(within(dialog).getByText("Азиз")).toBeInTheDocument();
+    expect(within(dialog).getByText("Официант:")).toBeInTheDocument();
+    expect(within(dialog).getByText("Абдулазиз")).toBeInTheDocument();
+  });
+
   it("opens the clicked order as a centered receipt rendered by the shared preview", async () => {
     renderDialog();
     // Пока строку не нажали, чека нет.
@@ -121,6 +134,50 @@ describe("Order receipt dialog on the dashboard orders table", () => {
     expect(preview).not.toBeNull();
     // Сохранённый «жирный» итог из шаблона доехал до чека.
     expect(preview.querySelector(".receipt-preview__total").className).toMatch("receipt-preview__block--weight-bold");
+  });
+
+  it("hides logo and contacts only in the viewer without changing the saved template", async () => {
+    const saved = {
+      enabled: { logo: true, address: true, phone: true },
+      address: "Адрес из шаблона", phone: "+998 90 123 45 67",
+      blockStyles: { total: { weight: "bold" } },
+    };
+    getCustomerTemplate.mockResolvedValue({ template: saved });
+    renderDialog();
+    fireEvent.click(orderRow());
+    const dialog = await findReceipt();
+    await within(dialog).findByText("Qozon kabob");
+    expect(dialog.querySelector(".receipt-preview__logo")).toBeNull();
+    for (const text of [saved.address, saved.phone, "Ташкент", "+998 90 000 00 00"]) {
+      expect(within(dialog).queryByText(text)).toBeNull();
+    }
+    expect(saved.enabled).toEqual({ logo: true, address: true, phone: true });
+    expect(within(dialog).getByText("MARJON")).toBeInTheDocument();
+    expect(within(dialog).getByText("НОМЕР ЗАКАЗА")).toBeInTheDocument();
+  });
+
+  it.each(["small", "medium", "large", undefined])("always uses small line spacing when the saved setting is %s", async (lineSpacing) => {
+    const saved = { lineSpacing };
+    getCustomerTemplate.mockResolvedValue({ template: saved });
+    renderDialog();
+    fireEvent.click(orderRow());
+    const dialog = await findReceipt();
+    await within(dialog).findByText("Qozon kabob");
+    expect(dialog.querySelector(".receipt-preview")).toHaveAttribute("data-line-spacing", "small");
+    expect(saved.lineSpacing).toBe(lineSpacing);
+  });
+
+  it("keeps the final lines and bottom number in a long receipt", async () => {
+    ordersService.get.mockResolvedValue({ data: { ...ORDER, items: Array.from({ length: 45 }, (_, index) => ({
+      id: index, name: `Длинный чек — блюдо ${index + 1}`, quantity: 1, price: 1000, total: 1000, status: "served",
+    })) } });
+    renderDialog();
+    fireEvent.click(orderRow());
+    const dialog = await findReceipt();
+    expect(await within(dialog).findByText("Длинный чек — блюдо 45")).toBeInTheDocument();
+    expect(dialog.querySelectorAll(".receipt-preview__item-row")).toHaveLength(45);
+    expect(within(dialog).getByText("Карта:")).toBeInTheDocument();
+    expect(dialog.querySelector(".receipt-preview__bottomnum-value")).toHaveTextContent("5");
   });
 
   it("shows the order number at the bottom while keeping thank-you text hidden", async () => {

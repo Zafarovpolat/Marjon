@@ -25,6 +25,7 @@ import HeaderMenu from '../../components/HeaderMenu'
 import { t } from '../../shared/i18n'
 import { can, must } from '../../shared/permissions'
 import { toast } from '../../components/Toast'
+import { errorMessage } from '../../shared/errorMessage.mjs'
 import { formatPhone, extractPhoneDigits, fullPhone } from '../../shared/phone'
 import { formatQty } from '../../shared/qty'
 
@@ -74,6 +75,8 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
   const [orderList, setOrderList] = useState([])
   const [activeZone, setActiveZone] = useState(courier ? 'delivery' : 'all')
   const [loading, setLoading] = useState(true)
+  const [hallsError, setHallsError] = useState('')
+  const orderSubmitLock = useRef(false)
 
   // Курьер стартует на доске своих заказов (доставка). Физических столов у него нет
   const [view, setView] = useState('floor')  // floor | order
@@ -132,8 +135,8 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
 
   const loadFloor = useCallback(() => {
     hallsApi.list(user.branch_id)
-      .then((d) => { const l = Array.isArray(d) ? d : d?.items || []; setZones(l.length ? l : demoZones()) })
-      .catch(() => setZones(demoZones()))
+      .then((d) => { const l = Array.isArray(d) ? d : d?.items || []; setZones(l); setHallsError('') })
+      .catch((error) => setHallsError(errorMessage(error, t('load_halls_error'))))
     orders.list({ branch_id: user.branch_id })
       .then((d) => { const all = Array.isArray(d) ? d : d?.items || []; setOrderList(all.filter((o) => ACTIVE.has(o.status))) })
       .catch(() => {})
@@ -565,6 +568,7 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
     if (!addToOrderId || !cart.length) return existingOrder
     for (const i of cart) {
       await orders.addItem(addToOrderId, { product_id: i.product.id, quantity: i.qty, note: i.note || null, takeaway: !!i.takeaway, modifiers: i.modifiers || [] })
+      setCart(prev => prev.filter(line => line.lineId !== i.lineId))
     }
     const fresh = await orders.get(addToOrderId)
     setCart([])
@@ -577,7 +581,8 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
   // Создание заказа / дозаказ. Позиции уходят повару (авто-печать кухонного
   // чека на бэкенде), оплата/закрытие — отдельным шагом.
   async function createOrder() {
-    if (!cart.length || creating) return
+    if (!cart.length || creating || orderSubmitLock.current) return
+    orderSubmitLock.current = true
     setCreating(true)
     try {
       if (addToOrderId) {
@@ -602,8 +607,9 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
         toast(t('order_created'))
       }
     } catch (err) {
-      toast(t('create_order_error') + ': ' + (err?.response?.data?.detail || err.message), 'error')
+      toast(errorMessage(err, t('create_order_error')), 'error')
     } finally {
+      orderSubmitLock.current = false
       setCreating(false)
     }
   }
@@ -720,7 +726,12 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
                   })}
                 </div>
               )
-            ) : loading ? <p className="empty-text">{t('loading')}</p> : shownZones.map((z) => (
+            ) : loading ? <p className="empty-text">{t('loading')}</p> : shownZones.length === 0 ? (
+              <div className="empty-text" role={hallsError ? 'alert' : 'status'}>
+                <p>{hallsError || t('no_halls')}</p>
+                <button className="btn btn--primary btn--sm" onClick={loadFloor}>{t('retry')}</button>
+              </div>
+            ) : shownZones.map((z) => (
               <section className="tgroup" key={z.id}>
                 <div className="tgroup__title">{z.name} <span>{(z.tables || []).length} {t('tables_low')}</span></div>
                 <div className="tgrid">
@@ -959,12 +970,4 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
       {promptCfg && <InputPromptModal {...promptCfg} onClose={() => setPromptCfg(null)} />}
     </div>
   )
-}
-
-function demoZones() {
-  const mk = (num, cap) => ({ id: `d${num}`, number: num, capacity: cap })
-  return [
-    { id: 'z-hall', name: 'Зал', tables: [1, 2, 3, 4, 5, 6, 7, 8].map((n) => mk(n, 4)) },
-    { id: 'z-terrace', name: 'Терраса', tables: [9, 10, 11, 12].map((n) => mk(n, 4)) },
-  ]
 }

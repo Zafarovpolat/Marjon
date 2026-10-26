@@ -154,8 +154,14 @@ export default function ReceiptSettingsPage() {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+    const knownType = ["image/jpeg", "image/png", "image/webp"].includes(file.type);
+    const unknownType = !file.type || file.type === "application/octet-stream";
+    if (!knownType && !(unknownType && /\.(jpe?g|png|webp)$/i.test(file.name))) {
       setError("Поддерживаются только jpg, png, webp.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Логотип должен быть не больше 5 МБ.");
       return;
     }
     if (uploadingLogo) return;
@@ -167,7 +173,8 @@ export default function ReceiptSettingsPage() {
       await reloadOrg();
       flashMessage("Логотип загружен.");
     } catch (err) {
-      setError(err.response?.data?.detail || "Не удалось загрузить логотип.");
+      const detail = err.response?.data?.detail;
+      setError(typeof detail === "string" ? detail : "Не удалось загрузить логотип. Проверьте файл и повторите попытку.");
     } finally {
       setUploadingLogo(false);
     }

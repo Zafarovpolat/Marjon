@@ -9,6 +9,7 @@ from decimal import Decimal, ROUND_FLOOR
 from sqlalchemy import func, select
 
 from app.modules.analytics.service import AnalyticsService
+from app.modules.analytics.owner_period import owner_period_bounds
 from app.modules.companies.models import Branch
 from app.modules.inventory.models import Category, Product
 from app.modules.payments.models import Payment
@@ -34,7 +35,8 @@ def allocate_money(total, weights):
     return [Decimal(v) / 100 * (-1 if cents < 0 else 1) for v in whole]
 
 
-async def owner_financials(db, company_id, date_from: date, date_to: date, *, web_timezone: str | None = None):
+async def owner_financials(db, company_id, date_from: date, date_to: date, *, web_timezone: str | None = None,
+                           time_from: str | None = None, time_to: str | None = None):
     if date_from > date_to or (date_to - date_from).days > 3660:
         raise ValidationError("Invalid report period (maximum 3661 days)")
     if web_timezone:
@@ -42,8 +44,7 @@ async def owner_financials(db, company_id, date_from: date, date_to: date, *, we
         tz = ZoneInfo(web_timezone)
     else:
         tz = await AnalyticsService(db)._company_tz(company_id)
-    start, _ = AnalyticsService._date_bounds(date_from, tz)
-    _, end = AnalyticsService._date_bounds(date_to, tz)
+    start, end = owner_period_bounds(date_from, date_to, tz, time_from, time_to)
     # One row per order BEFORE joining positions: split payments do not multiply COGS.
     paid = (select(Payment.order_id, func.sum(Payment.amount).label("income"),
                    func.max(Payment.updated_at).label("confirmed_at"))
@@ -58,7 +59,9 @@ async def owner_financials(db, company_id, date_from: date, date_to: date, *, we
         .where(Order.company_id == company_id, Order.status == "completed",
                Order.total_amount > 0, paid.c.income >= Order.total_amount,
                paid.c.confirmed_at >= start, paid.c.confirmed_at < end)
-        .order_by(Order.created_at.desc(), Order.id)
+        # The displayed timestamp, report period and chart buckets all use
+        # the last confirmed payment, not when the order was first created.
+        .order_by(paid.c.confirmed_at.desc(), Order.id)
     )).all()
     ids = [row.id for row in orders]
     costs = {order_id: {"amount": ZERO, "missing": 0, "items": 0} for order_id in ids}
@@ -181,8 +184,8 @@ async def owner_financials(db, company_id, date_from: date, date_to: date, *, we
             "sales": sales,
             "average_check_rows": average_check_rows,
             "order_rows": [{"id": str(order.id), "number": order.order_number,
-                "date_label": (order.created_at.replace(tzinfo=timezone.utc) if order.created_at.tzinfo is None
-                               else order.created_at).astimezone(tz).strftime("%d.%m %H:%M"),
+                "date_label": (order.confirmed_at.replace(tzinfo=timezone.utc) if order.confirmed_at.tzinfo is None
+                               else order.confirmed_at).astimezone(tz).strftime("%d.%m %H:%M"),
                 "place": f"Стол {order.table_number}" if order.table_number else
                          {"takeaway": "С собой", "delivery": "Доставка", "dine_in": "В зале"}.get(order.order_type, "—"),
                 "amount": money(Decimal(str(order.total_amount))), "status": order.status} for order in orders],

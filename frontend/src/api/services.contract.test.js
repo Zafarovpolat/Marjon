@@ -528,6 +528,15 @@ describe("Web domain service contracts", () => {
       expect(api.get).toHaveBeenCalledWith("/finance/transactions", { params: { date_from: "2026-08-01", date_to: "2026-08-13", web_timezone: "Asia/Tashkent" } });
     });
 
+    it("sends the same minute bounds to financial cards and paid top products", async () => {
+      await dashboardService.loadOwnerOverview({ dateFrom: "2026-10-25", dateTo: "2026-10-25", timeFrom: "21:00", timeTo: "23:59" });
+      for (const path of ["/analytics/owner-financials", "/analytics/products/paid-top"]) {
+        expect(api.get).toHaveBeenCalledWith(path, expect.objectContaining({ params: expect.objectContaining({
+          date_from: "2026-10-25", date_to: "2026-10-25", time_from: "21:00", time_to: "23:59", web_timezone: "Asia/Tashkent",
+        }) }));
+      }
+    });
+
     it("rejects when an authoritative dashboard source fails", async () => {
       const error = new Error("dashboard unavailable");
       api.get.mockImplementation((path) => path === "/finance/transactions" ? Promise.reject(error) : Promise.resolve({ data: [] }));

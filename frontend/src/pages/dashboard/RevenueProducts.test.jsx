@@ -22,6 +22,24 @@ function show(data, card = CARD.revenue) {
   return screen.getByRole("table");
 }
 describe("Revenue product detail", () => {
+  it("places the profit title and centered amount in one compact heading", () => {
+    show(summary);
+    const dialog = screen.getByRole("dialog");
+    const head = dialog.querySelector(".kpi-info-window__head");
+    expect(dialog).toHaveClass("kpi-info-window--profit-detail");
+    expect(dialog.parentElement).toHaveClass("kpi-info-backdrop--profit-detail");
+    expect(within(head).getByRole("heading", { name: "Чистая прибыль" }).closest(".kpi-info-window__profit-title")).not.toBeNull();
+    expect(head.querySelector(".kpi-info-window__value")).not.toBeNull();
+    expect(dialog.querySelectorAll(".kpi-info-window__value")).toHaveLength(1);
+    expect(dialog.querySelector(":scope > .kpi-info-window__value")).toBeNull();
+  });
+
+  it("leaves the income dialog layout unchanged", () => {
+    show(summary, CARD.income);
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).not.toHaveClass("kpi-info-window--profit-detail");
+    expect(dialog.querySelector(":scope > .kpi-info-window__value")).not.toBeNull();
+  });
   it("reverses both money columns, row values and totals only for income", () => {
     const table = show(summary, CARD.income);
     expect(within(table).getAllByRole("columnheader").map(el => el.textContent)).toEqual([
@@ -43,7 +61,7 @@ describe("Revenue product detail", () => {
   it("keeps all five order columns and no-data row without a total when empty", () => {
     const table = show({ ...summary, today_orders: 0, order_rows: [], orders_total: "0" }, CARD.orders);
     expect(within(table).getAllByRole("columnheader").map(el => el.textContent)).toEqual([
-      "№ заказа", "Дата и время", "Место", "Сумма", "Статус",
+      "№ заказа", "Дата и время оплаты", "Место", "Сумма", "Статус",
     ]);
     expect(within(table).getByText("Нет данных")).toBeTruthy();
     expect(within(table).queryByText("Итого")).toBeNull();

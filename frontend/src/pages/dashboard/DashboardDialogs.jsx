@@ -118,7 +118,7 @@ function OrdersTable({ report, onOpenOrder }) {
   } : {});
   return <div className="revenue-products owner-orders-report">
     <div className="revenue-products__scroll" tabIndex={0} role="region" aria-label="Таблица заказов">
-      <table><thead><tr>{["№ заказа", "Дата и время", "Место", "Сумма", "Статус"].map(label =>
+      <table><thead><tr>{["№ заказа", "Дата и время оплаты", "Место", "Сумма", "Статус"].map(label =>
         <th key={label} scope="col">{label}</th>)}</tr></thead>
         <tbody>
         {report.rows.length > 0 && !report.unavailable ? <tr className="revenue-products__total"><th scope="row" colSpan={3}>Итого</th><td>{money(report.total)}</td><td /></tr> : null}
@@ -156,6 +156,7 @@ export function KpiInfoDialog({ kpi, onClose, sourceRect, returnFocusRef }) {
   const hasAverageTable = Boolean(kpi?.averageReport);
   const hasOrdersTable = Boolean(kpi?.orderReport);
   const hasProductTable = Boolean(kpi?.productReport);
+  const isProfitDetail = hasProductTable && kpi?.className?.split(" ").includes("premium-kpi--revenue");
   const hasCustomTable = kpi?.table && Array.isArray(kpi.table.rows);
   const hasPlaceTable = !hasCustomTable && Array.isArray(kpi?.placeRows);
   const tableRows = hasPlaceTable ? kpi.placeRows : !hasCustomTable && Array.isArray(kpi?.paymentRows) ? kpi.paymentRows : null;
@@ -197,6 +198,10 @@ export function KpiInfoDialog({ kpi, onClose, sourceRect, returnFocusRef }) {
 
   if (!kpi) return null;
   const valueSuffix = kpi.dialogSuffix ?? kpi.suffix;
+  const valueNode = !isComingSoon ? <div className="kpi-info-window__value">
+    <strong>{kpi.value}</strong>
+    {valueSuffix ? <small>{valueSuffix}</small> : null}
+  </div> : null;
 
   // Portal to <body> so the backdrop is a top-level fixed layer above the whole
   // shell (sidebar + topbar + main); inside .dashboard-main its stacking context
@@ -206,7 +211,7 @@ export function KpiInfoDialog({ kpi, onClose, sourceRect, returnFocusRef }) {
   return createPortal(
     <>
     <div
-      className={`kpi-info-backdrop owner-modal-backdrop ${motionClassName}`}
+      className={`kpi-info-backdrop owner-modal-backdrop ${isProfitDetail ? "kpi-info-backdrop--profit-detail" : ""} ${motionClassName}`}
       style={motionStyle}
       role="presentation"
       onMouseDown={requestClose}
@@ -214,7 +219,7 @@ export function KpiInfoDialog({ kpi, onClose, sourceRect, returnFocusRef }) {
     >
       <section
         ref={dialogRef}
-        className={`kpi-info-window ${kpi.className} ${hasTable ? "kpi-info-window--payment-table" : ""} ${isComingSoon || hasProductTable || hasOrdersTable || hasAverageTable ? "kpi-info-window--revenue-products" : ""} ${isComingSoon ? "kpi-info-window--coming-soon" : ""}`}
+        className={`kpi-info-window ${kpi.className} ${hasTable ? "kpi-info-window--payment-table" : ""} ${isComingSoon || hasProductTable || hasOrdersTable || hasAverageTable ? "kpi-info-window--revenue-products" : ""} ${isProfitDetail ? "kpi-info-window--profit-detail" : ""} ${isComingSoon ? "kpi-info-window--coming-soon" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="kpi-info-title"
@@ -222,19 +227,17 @@ export function KpiInfoDialog({ kpi, onClose, sourceRect, returnFocusRef }) {
       >
         <div className={`kpi-info-window__head ${hasTable ? "kpi-info-window__head--payment-table" : ""}`}>
           {hasTable ? null : <div className="kpi-info-window__icon"><Icon name={kpi.icon} size={20} /></div>}
-          <div>
+          <div className={isProfitDetail ? "kpi-info-window__profit-title" : undefined}>
             <span>{kpi.badge}</span>
             <h2 id="kpi-info-title">{kpi.label}</h2>
           </div>
+          {isProfitDetail ? valueNode : null}
           <button type="button" className="kpi-info-window__close" aria-label="Закрыть" onClick={requestClose}>
             <Icon name="bi-x-lg" size={20} />
           </button>
         </div>
 
-        {!isComingSoon ? <div className="kpi-info-window__value">
-          <strong>{kpi.value}</strong>
-          {valueSuffix ? <small>{valueSuffix}</small> : null}
-        </div> : null}
+        {!isProfitDetail ? valueNode : null}
         {!isComingSoon && ((!hasProductTable && !kpi.hideDescription) || (hasProductTable && (kpi.productReport.unavailable || kpi.productReport.revenue == null)))
           ? <p>{kpi.description}</p> : null}
 

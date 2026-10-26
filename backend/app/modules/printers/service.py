@@ -600,6 +600,9 @@ class PrinterService:
         ).scalar_one_or_none()
         waiter_name = await self._resolve_waiter_name(company_id, order)
 
+        from app.modules.pos.order_staff import resolve_receipt_staff
+        receipt_staff = (await resolve_receipt_staff(self.db, company_id, [order])).get(order.id, [])
+
         # A customer receipt shows when this print request is prepared, not
         # when the order was created. Every new reprint gets its own timestamp.
         print_local_time = datetime.now(ZoneInfo("Asia/Tashkent"))
@@ -634,6 +637,7 @@ class PrinterService:
             waiter_name=waiter_name,
             printed_at=print_local_time,
             staff_label=await self._resolve_staff_label(company_id, order),
+            receipt_staff=receipt_staff,
             cancelled=cancelled_lines,
         )
 

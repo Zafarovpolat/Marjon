@@ -5,15 +5,15 @@ import { InlineLoader } from "../../components/Loader";
 import ReceiptPreview from "../../components/receipt/ReceiptPreview";
 import { ordersService } from "../../api/orders";
 import { paymentsService } from "../../api/payments";
-import { getCustomerTemplate } from "../../api/receipt";
+import { getCustomerTemplate, LINE_SPACING_SMALL } from "../../api/receipt";
 import { useOrg } from "../../context/OrgContext";
 import { useAnchoredDialogMotion } from "../../hooks/useAnchoredDialogMotion";
 import { paymentMethodLabel } from "./analyticsData";
 import "./orderReceiptDialog.css";
 
 // Чек заказа из таблицы «Заказов» на дашборде. Показываем его ровно так, как
-// он выглядит в «Настройки → Настройка чека»: тот же компонент ReceiptPreview
-// с сохранённым шаблоном компании, поэтому превью и реальный чек не расходятся.
+// используем ReceiptPreview с шаблоном компании. Только в этом просмотрщике
+// скрываем логотип, контакты и благодарность; печатный шаблон не меняется.
 
 function toNumber(value) {
   const number = Number(value ?? 0);
@@ -27,6 +27,7 @@ function toReceiptOrder(order, payments) {
     order_type: order.order_type,
     table_number: order.table_number,
     waiter: order.waiter_name || "",
+    receipt_staff: order.receipt_staff || [],
     discount: toNumber(order.discount_amount),
     service_fee: toNumber(order.service_fee),
     vat: toNumber(order.tax_amount),
@@ -119,7 +120,13 @@ export default function OrderReceiptDialog({ orderId, orderNumber, onClose, onOp
     const source = template || {};
     return {
       ...source,
-      enabled: { ...(source.enabled || {}), thankYouText: false, bottomOrderNumber: true },
+      // Viewer-only density: never write this override to the print template.
+      lineSpacing: LINE_SPACING_SMALL,
+      enabled: {
+        ...(source.enabled || {}),
+        logo: false, address: false, phone: false,
+        thankYouText: false, bottomOrderNumber: true,
+      },
       blockStyles: { ...source.blockStyles, bottomOrderNumber: { ...source.blockStyles?.bottomOrderNumber, placement: "bottom" } },
     };
   }, [template]);
@@ -180,9 +187,8 @@ export default function OrderReceiptDialog({ orderId, orderNumber, onClose, onOp
               order={receiptOrder}
               org={org}
               fitPane
-              /* В модалке чек должен быть виден ЦЕЛИКОМ (как в превью настроек),
-                 поэтому здесь к ширине добавляется масштаб по высоте окна. */
-              fitToHeight
+              /* Shrink the whole receipt inside the screen-bounded panel. */
+              fitToHeight="contain"
             />
           ) : null}
         </div>

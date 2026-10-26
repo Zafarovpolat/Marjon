@@ -136,8 +136,8 @@ export const reportsService = {
 };
 
 export const analyticsService = {
-  getOwnerFinancials(dateFrom, dateTo, config = {}) {
-    return api.get("/analytics/owner-financials", { params: webReportRangeParams(dateFrom, dateTo), ...config });
+  getOwnerFinancials(dateFrom, dateTo, config = {}, timeRange = {}) {
+    return api.get("/analytics/owner-financials", { params: webReportRangeParams(dateFrom, dateTo, timeRange), ...config });
   },
   getDashboard(date, config = {}) {
     return api.get("/analytics/dashboard", { params: { date }, ...config });
@@ -145,9 +145,11 @@ export const analyticsService = {
   listSales(dateFrom, dateTo, config = {}) {
     return api.get("/analytics/sales", { params: rangeParams(dateFrom, dateTo), ...config });
   },
-  listTopProducts({ limit = 20, dateFrom, dateTo, signal, confirmedOnly = false } = {}) {
+  listTopProducts({ limit = 20, dateFrom, dateTo, timeFrom, timeTo, signal, confirmedOnly = false } = {}) {
     return api.get(confirmedOnly ? "/analytics/products/paid-top" : "/analytics/products/top", {
-      params: confirmedOnly ? webReportRangeParams(dateFrom, dateTo, { limit }) : rangeParams(dateFrom, dateTo, { limit }),
+      params: confirmedOnly ? webReportRangeParams(dateFrom, dateTo, { limit,
+        ...(timeFrom ? { time_from: timeFrom } : {}), ...(timeTo ? { time_to: timeTo } : {}),
+      }) : rangeParams(dateFrom, dateTo, { limit }),
       ...(signal ? { signal } : {}),
     });
   },

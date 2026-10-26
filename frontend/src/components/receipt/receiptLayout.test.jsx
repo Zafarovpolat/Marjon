@@ -2,10 +2,43 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import ReceiptPreview from "./ReceiptPreview";
 import ReceiptSeparatorSelect from "./ReceiptSeparatorSelect";
-import { groupReceiptItems } from "./receiptLayout";
+import { groupReceiptItems, rasterRuleGeometry } from "./receiptLayout";
 import { buildCustomerTemplate, buildKitchenTemplate } from "../../api/receipt";
 
 afterEach(cleanup);
+
+it("shows cashier then waiter once each for a mixed-author customer receipt", () => {
+  const order = { waiter: "Абдулазиз", receipt_staff: [
+    { label: "Кассир", name: "Азиз" }, { label: "Официант", name: "Абдулазиз" },
+  ] };
+  render(<ReceiptPreview template={buildCustomerTemplate()} order={order} />);
+  expect(screen.getByText("Кассир:").parentElement).toHaveTextContent("Азиз");
+  expect(screen.getByText("Официант:").parentElement).toHaveTextContent("Абдулазиз");
+  expect(screen.getAllByText("Абдулазиз")).toHaveLength(1);
+});
+
+it.each([["thin", 1], ["medium", 2], ["bold", 3]])("matches printer dash geometry at %s weight", (weight, thickness) => {
+  const rule = rasterRuleGeometry({ pattern: "dashed", weight });
+  expect(rule.width).toBe(545);
+  expect(rule.thickness).toBe(thickness);
+  expect(rule.path).toContain(`M0 0h11v${thickness}h-11Z`);
+  expect(rule.path).toContain(`M18 0h11v${thickness}h-11Z`);
+  expect(rule.path).toContain(`M540 0h5v${thickness}h-5Z`);
+});
+
+it("centers address and phone including legacy templates with hidden left alignment", () => {
+  const template = { ...buildCustomerTemplate(), address: "Tashkent minor metro", phone: "+998 90 777 77 77" };
+  template.enabled.address = template.enabled.phone = true;
+  const view = render(<ReceiptPreview template={template} />);
+  expect(screen.getByText(template.address)).toHaveStyle({ textAlign: "center", justifySelf: "stretch" });
+  expect(screen.getByText(template.phone)).toHaveStyle({ textAlign: "center", justifySelf: "stretch" });
+  expect(template.blockStyles.address.align).toBe("center");
+  expect(template.blockStyles.phone.align).toBe("center");
+  template.blockStyles.address = template.blockStyles.phone = { align: "left" };
+  view.rerender(<ReceiptPreview template={template} />);
+  expect(screen.getByText(template.address)).toHaveStyle({ textAlign: "center" });
+  expect(screen.getByText(template.phone)).toHaveStyle({ textAlign: "center" });
+});
 const lines = [1, 2, 3].map(id => ({ id, product_id: "hotdog", name: "Хот дог", quantity: 1, price: 14000, total: 14000 }));
 const order = { order_number: "12", waiter: "Азиз", waiter_role: "cashier", created_at: "2026-10-23T12:40:00Z", items: lines, total_amount: 47040, service_fee: 5040 };
 
@@ -48,5 +81,6 @@ it.each(["dashed", "solid", "stars"])("applies %s rules to every separator", pat
     expect(rule).toHaveAttribute("data-separator-pattern", pattern);
     expect(rule).toHaveAttribute("data-separator-weight", "medium");
     if (pattern === "stars") expect(rule.textContent).toContain("* *");
+    else expect(rule.querySelector("svg")).toHaveAttribute("viewBox", "0 0 545 2");
   });
 });

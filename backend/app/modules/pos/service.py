@@ -1536,6 +1536,12 @@ class OrderService:
             o.waiter_name = names.get(o.waiter_id) if o.waiter_id else None
             for it in o.items:
                 it.added_by_name = names.get(it.added_by) if getattr(it, "added_by", None) else None
+        from app.modules.pos.order_staff import resolve_receipt_staff
+        for company_id in {o.company_id for o in orders}:
+            company_orders = [o for o in orders if o.company_id == company_id]
+            staff = await resolve_receipt_staff(self.db, company_id, company_orders)
+            for o in company_orders:
+                o.receipt_staff = staff.get(o.id, [])
 
     async def _subtotal_q(self, order_id: UUID) -> Decimal:
         """Сумма всех активных (не отменённых) позиций заказа — для пересчёта после move_item."""

@@ -97,8 +97,9 @@ export function dashboardPeriodFromSearch(search = "") {
   const range = normalizeReportRange({
     start: inputDateToReportDate(dateFrom),
     end: inputDateToReportDate(dateTo),
-    startTime: "00:00",
-    endTime: "00:00",
+    startTime: params.get("time_from") || "00:00",
+    endTime: params.get("time_to") || "00:00",
+    timeTouched: params.has("time_from") || params.has("time_to"),
   });
   return { ...range, preset: inferReportPreset(range) };
 }
@@ -120,9 +121,11 @@ export function normalizeReportRange(range = {}) {
 
 export function reportRangeToApiParams(range) {
   const normalized = normalizeReportRange(range);
+  const hasTime = normalized.timeTouched || normalized.startTime !== "00:00" || normalized.endTime !== "00:00";
   return {
     date_from: reportDateToInputDate(normalized.start),
     date_to: reportDateToInputDate(normalized.end),
+    ...(hasTime ? { time_from: normalized.startTime, time_to: normalized.endTime } : {}),
   };
 }
 

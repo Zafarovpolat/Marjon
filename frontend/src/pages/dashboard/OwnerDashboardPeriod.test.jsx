@@ -28,7 +28,7 @@ vi.mock("./DashboardDialogs", () => ({
 vi.mock("./DashboardCards", () => ({
   EmptyState: ({ title }) => <div>{title}</div>,
   TopSalesCard: () => <div data-testid="top-sales" />,
-  RecentOrdersCard: () => <div data-testid="recent-orders" />,
+  RecentOrdersCard: ({ orders }) => <div data-testid="recent-orders">{orders.map(order => <span key={order.id}>{order.place}</span>)}</div>,
   SectionEmpty: ({ title }) => <div>{title}</div>,
 }));
 
@@ -105,6 +105,45 @@ describe("OWNER Dashboard global period V2", () => {
     }));
     expect(trigger).toHaveTextContent(reportDate(yesterday));
     expect(window.location.search).toBe(`?date_from=${yesterday}&date_to=${yesterday}`);
+  });
+
+  it("passes edited hours to the dashboard and preserves them in the URL", async () => {
+    const trigger = await renderDashboard();
+    dashboardService.loadOwnerOverview.mockClear();
+    fireEvent.click(trigger);
+    fireEvent.change(screen.getByLabelText("Начало периода"), { target: { value: "25.10.2026 | 21:00" } });
+    fireEvent.change(screen.getByLabelText("Конец периода"), { target: { value: "25.10.2026 | 23:59" } });
+    fireEvent.click(document.querySelector(".owner-revenue-switcher .report-date-ok"));
+    await waitFor(() => expect(dashboardService.loadOwnerOverview).toHaveBeenCalledWith(expect.objectContaining({
+      dateFrom: "2026-10-25", dateTo: "2026-10-25", timeFrom: "21:00", timeTo: "23:59",
+    })));
+    expect(new URLSearchParams(window.location.search).get("time_from")).toBe("21:00");
+    expect(new URLSearchParams(window.location.search).get("time_to")).toBe("23:59");
+  });
+
+  it("translates recent order types while retaining table numbers", async () => {
+    const result = EMPTY_OVERVIEW.map(entry => ({ ...entry }));
+    result[5] = { data: [
+      { id: "a", order_number: "1", order_type: "takeaway" },
+      { id: "b", order_number: "2", order_type: "delivery" },
+      { id: "c", order_number: "3", order_type: "dine_in", table_number: "6" },
+    ] };
+    dashboardService.loadOwnerOverview.mockResolvedValue(result);
+    render(<OwnerDashboard />);
+    expect(await screen.findByText("С собой")).toBeInTheDocument();
+    expect(screen.getByText("Доставка")).toBeInTheDocument();
+    expect(screen.getByText("Стол 6")).toBeInTheDocument();
+  });
+
+  it("restores the selected hours on page reload", async () => {
+    window.history.replaceState({}, "", "/?date_from=2026-10-25&date_to=2026-10-25&time_from=21%3A00&time_to=23%3A59");
+    const trigger = await renderDashboard();
+    expect(dashboardService.loadOwnerOverview).toHaveBeenCalledWith(expect.objectContaining({
+      dateFrom: "2026-10-25", dateTo: "2026-10-25", timeFrom: "21:00", timeTo: "23:59",
+    }));
+    fireEvent.click(trigger);
+    expect(screen.getByLabelText("Начало периода")).toHaveValue("25.10.2026 | 21:00");
+    expect(screen.getByLabelText("Конец периода")).toHaveValue("25.10.2026 | 23:59");
   });
 
   it("applies a manual custom range only on OK", async () => {
