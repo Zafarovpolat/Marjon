@@ -20,12 +20,16 @@ body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail {
   flex-direction: column;
   overflow: hidden;
 }
+/* Гасим hover-тени внутри панели прибыли. Без !important: файл подключается
+   вне @layer, поэтому обычная декларация и так бьёт правила из
+   @layer marjon-important (базовая тень .kpi-info-window лежит там), а
+   специфичность селектора (0,4,1) выше любой конкурирующей. */
 body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail,
 body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail:hover,
 body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail .revenue-products:hover,
 body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail .revenue-products__scroll:hover,
 body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail tr:hover {
-  box-shadow: none !important;
+  box-shadow: none;
 }
 body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail .kpi-info-window__head {
   flex: none;

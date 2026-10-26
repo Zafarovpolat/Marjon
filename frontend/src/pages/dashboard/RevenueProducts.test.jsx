@@ -36,8 +36,10 @@ describe("Revenue product detail", () => {
     expect(panel).toContain("height: auto");
     expect(panel).toContain("max-height: calc(100dvh - 32px)");
     expect(revenueStyles).not.toContain("height: min(980px");
-    expect(revenueStyles).toMatch(/profit-detail:hover,[\s\S]*?box-shadow: none !important/);
-    expect(revenueStyles).toMatch(/profit-detail tr:hover \{\s*box-shadow: none !important/);
+    // !important в проекте запрещён (tools/no-important.py): приоритет даёт
+    // внеслойный файл + высокая специфичность селектора, а не флаг.
+    expect(revenueStyles).toMatch(/profit-detail:hover,[\s\S]*?box-shadow: none(?!\s*!important)/);
+    expect(revenueStyles).toMatch(/profit-detail tr:hover \{\s*box-shadow: none(?!\s*!important)/);
   });
   it("places the profit title and centered amount in one compact heading", () => {
     show(summary);
