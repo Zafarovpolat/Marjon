@@ -5,6 +5,7 @@ from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy import and_, bindparam, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.shared.exceptions import ValidationError
 from app.modules.analytics.schemas import (
     DashboardResponse,
     PaymentMethodSummary,
@@ -210,6 +211,8 @@ class AnalyticsService:
         date_to: date | None = None,
         confirmed_only: bool = False,
         web_timezone: str | None = None,
+        time_from: str | None = None,
+        time_to: str | None = None,
     ) -> list[TopProduct]:
         # Aggregate payments BEFORE joining items: mixed/duplicate payment rows
         # must never multiply quantities. Only fully settled, completed orders.
@@ -250,9 +253,15 @@ class AnalyticsService:
         period_column = paid.c.confirmed_at if confirmed_only else Order.created_at
         if date_from or date_to:
             tz = ZoneInfo(web_timezone) if web_timezone else await self._company_tz(company_id)
-        if date_from:
+        if time_from is not None or time_to is not None:
+            from app.modules.analytics.owner_period import owner_period_bounds
+            if date_from is None or date_to is None:
+                raise ValidationError("Report dates are required with times")
+            start, end = owner_period_bounds(date_from, date_to, tz, time_from, time_to)
+            query = query.where(period_column >= start, period_column < end)
+        elif date_from:
             query = query.where(period_column >= self._date_bounds(date_from, tz)[0])
-        if date_to:
+        if date_to and time_from is None and time_to is None:
             query = query.where(period_column < self._date_bounds(date_to, tz)[1])
 
         result = await self.db.execute(

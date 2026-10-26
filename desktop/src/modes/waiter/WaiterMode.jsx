@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Plus, Minus, Search, X, Users, Clock, CheckCircle, Coffee, Utensils,
   LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, RefreshCw, ArrowLeft, Printer,
@@ -16,6 +16,7 @@ import { toast } from '../../components/Toast'
 import { t } from '../../shared/i18n'
 import { can, must } from '../../shared/permissions'
 import { formatQty } from '../../shared/qty'
+import { errorMessage } from '../../shared/errorMessage.mjs'
 
 const STATUS_COLORS = {
   new: 'var(--color-info)', accepted: 'var(--color-brand)',
@@ -45,6 +46,8 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
   const [orderList, setOrderList] = useState([])
   const [activeZone, setActiveZone] = useState('all')
   const [loading, setLoading] = useState(true)
+  const [hallsError, setHallsError] = useState('')
+  const orderSubmitLock = useRef(false)
 
   const [view, setView] = useState('floor')        // floor | detail | new
   const [selectedTable, setSelectedTable] = useState(null)
@@ -67,9 +70,10 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
     hallsApi.list(user.branch_id)
       .then((data) => {
         const list = Array.isArray(data) ? data : data?.items || []
-        setZones(list.length ? list : demoZones())
+        setZones(list)
+        setHallsError('')
       })
-      .catch(() => setZones(demoZones()))
+      .catch((error) => setHallsError(errorMessage(error, t('load_halls_error'))))
 
     orders.list({ branch_id: user.branch_id })
       .then((data) => {
@@ -326,16 +330,18 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
   const itemCount = cart.reduce((s, i) => s + i.qty, 0)
 
   async function submitOrder() {
-    if (!cart.length) return
+    if (!cart.length || submitting || orderSubmitLock.current) return
+    orderSubmitLock.current = true
     setSubmitting(true)
     try {
       if (addToOrderId) {
         // Дополняем существующий заказ (старые блюда сохраняются)
         for (const i of cart) {
           await orders.addItem(addToOrderId, { product_id: i.product.id, quantity: i.qty, note: i.note || null, takeaway: !!i.takeaway, modifiers: i.modifiers || [] })
+          setCart(prev => prev.filter(line => line.lineId !== i.lineId))
         }
-        // Авто-статус: заказ снова «готовится»
-        try { await orders.updateStatus(addToOrderId, 'cooking') } catch { /* офлайн-очередь */ }
+        // add_item already returns the order to cooking; do not queue an
+        // invalid cooking -> cooking status transition after a successful top-up.
       } else {
         await orders.create({
           branch_id: user.branch_id,
@@ -352,8 +358,9 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
       setAddToOrderId(null)
       setView('floor'); loadData()
     } catch (err) {
-      toast(err?.response?.data?.detail || t('create_order_error'), 'error')
+      toast(errorMessage(err, t('create_order_error')), 'error')
     } finally {
+      orderSubmitLock.current = false
       setSubmitting(false)
     }
   }
@@ -524,7 +531,10 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
               {loading ? (
                 <p className="empty-text">{t('loading')}</p>
               ) : shownZones.length === 0 ? (
-                <p className="empty-text">{t('no_halls')}</p>
+                <div className="empty-text" role={hallsError ? 'alert' : 'status'}>
+                  <p>{hallsError || t('no_halls')}</p>
+                  <button className="btn btn--primary btn--sm" onClick={loadData}>{t('retry')}</button>
+                </div>
               ) : shownZones.map((z) => (
                 <section className="tgroup" key={z.id}>
                   <div className="tgroup__title">{z.name} <span>{(z.tables || []).length} {t('tables_low')}</span></div>
@@ -646,13 +656,4 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
       {promptCfg && <InputPromptModal {...promptCfg} onClose={() => setPromptCfg(null)} />}
     </div>
   )
-}
-
-function demoZones() {
-  const mk = (n, seats, num) => ({ id: `d${num}`, number: num, capacity: seats })
-  return [
-    { id: 'z-hall', name: 'Зал', tables: [1, 2, 3, 4, 5, 6, 7, 8].map((n) => mk(n, 4, n)) },
-    { id: 'z-terrace', name: 'Терраса', tables: [9, 10, 11, 12].map((n) => mk(n, 4, n)) },
-    { id: 'z-cabin', name: 'Кабина', tables: [13, 14].map((n) => mk(n, 6, n)) },
-  ]
 }

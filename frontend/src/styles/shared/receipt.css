@@ -1040,6 +1040,17 @@
     border-top-width: 1.5px;
   }
 
+  .receipt-preview .receipt-preview__rule[data-separator-pattern]:not([data-separator-pattern="stars"]) {
+    height: auto;
+    border: 0;
+  }
+
+  .receipt-preview__raster-rule {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
   .receipt-preview__info {
     display: grid;
     gap: 4px;

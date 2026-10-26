@@ -116,6 +116,31 @@ def test_separator_styles_are_applied_to_raster_and_native_fallback(pattern, wei
     assert char * 48 in text
 
 
+@pytest.mark.parametrize("block", ["address", "phone"])
+def test_contact_details_default_to_center_in_customer_raster(block):
+    value = "Tashkent minor metro" if block == "address" else "+998 90 777 77 77"
+    template = {block: value, "enabled": {block: True}}
+    with patch.object(_RasterCanvas, "line_of_text", autospec=True) as lines:
+        render_customer_receipt_raster(_receipt(), template, 80)
+    line = next(call for call in lines.call_args_list if call.args[1] == value)
+    assert line.args[3] == "center"
+    legacy = {**template, "blockStyles": {block: {"align": "left"}}}
+    with patch.object(_RasterCanvas, "line_of_text", autospec=True) as lines:
+        render_customer_receipt_raster(_receipt(), legacy, 80)
+    assert next(call for call in lines.call_args_list if call.args[1] == value).args[3] == "center"
+
+
+@pytest.mark.parametrize("weight,thickness", [("thin", 1), ("medium", 2), ("bold", 3)])
+def test_printed_dash_geometry_stays_eleven_black_seven_white_dots(weight, thickness):
+    canvas = _RasterCanvas(576, ("dashed", weight))
+    canvas.divider()
+    image = canvas.render()
+    rows = [[image.getpixel((x, y)) == 0 for x in range(16, 561)] for y in range(image.height)]
+    ink_rows = [row for row in rows if any(row)]
+    assert len(ink_rows) == thickness
+    assert all(row == [(x % 18) < 11 for x in range(545)] for row in ink_rows)
+
+
 def test_all_nine_raster_rules_have_distinct_ink():
     images = set()
     for pattern in ("dashed", "solid", "stars"):

@@ -1,5 +1,9 @@
 from __future__ import annotations
-from uuid import UUID
+import io
+import logging
+from uuid import UUID, uuid4
+from PIL import Image, UnidentifiedImageError
+from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +19,8 @@ from app.shared.storage import storage
 
 _ALLOWED_LOGO_TYPES = {"image/jpeg", "image/png", "image/webp"}
 _LOGO_EXT_MAP = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
+_MAX_LOGO_BYTES = 5 * 1024 * 1024
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/companies", tags=["companies"])
 
@@ -53,11 +59,26 @@ async def upload_company_logo(
 ):
     """Лого компании: печатается на чеке (растром через ESC/POS, см.
     app/modules/printers/formatter.py) и показывается в UI (OrgContext.org.logo)."""
-    if file.content_type not in _ALLOWED_LOGO_TYPES:
+    data = await file.read(_MAX_LOGO_BYTES + 1)
+    if len(data) > _MAX_LOGO_BYTES:
+        raise HTTPException(status_code=413, detail="Логотип должен быть не больше 5 МБ")
+    try:
+        with Image.open(io.BytesIO(data)) as image:
+            content_type = {"JPEG": "image/jpeg", "PNG": "image/png", "WEBP": "image/webp"}.get(image.format)
+            image.verify()
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
+        raise HTTPException(status_code=400, detail="Файл логотипа повреждён или не является изображением")
+    if content_type not in _ALLOWED_LOGO_TYPES:
         raise HTTPException(status_code=400, detail="Поддерживаются только jpg, png, webp")
-    ext = _LOGO_EXT_MAP[file.content_type]
-    key = f"logos/{current_user.company_id}.{ext}"
-    logo_url = await storage.upload(await file.read(), key, file.content_type, public=True)
+    ext = _LOGO_EXT_MAP[content_type]
+    # A replacement must have a fresh URL: browser/proxy caches otherwise
+    # keep displaying the previous image even after a successful upload.
+    key = f"logos/{current_user.company_id}/{uuid4().hex}.{ext}"
+    try:
+        logo_url = await storage.upload(data, key, content_type, public=True)
+    except (BotoCoreError, ClientError):
+        logger.exception("Company logo storage upload failed for company %s", current_user.company_id)
+        raise HTTPException(status_code=503, detail="Хранилище изображений недоступно. Попробуйте загрузить логотип позже.")
 
     company = await CompanyService(db).get(current_user.company_id)
     company.logo_url = logo_url

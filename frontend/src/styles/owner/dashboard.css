@@ -6327,8 +6327,8 @@ body.dashboard-body .dashboard-shell .recent-orders-card:focus-within {
    order to win. */
 @media (min-width: 1281px) {
   body.dashboard-body .dashboard-shell .owner-widgets {
-    margin-top: 20px;
-    gap: 16px;
+    margin-top: 16px;
+    gap: 14px;
   }
   body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) {
     padding-bottom: 24px;
@@ -6337,7 +6337,7 @@ body.dashboard-body .dashboard-shell .recent-orders-card:focus-within {
 @media (max-width: 1280px) {
   body.dashboard-body .dashboard-shell .owner-widgets {
     margin-top: 16px;
-    gap: 16px;
+    gap: 14px;
   }
   body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) {
     padding-bottom: 16px;
@@ -6345,8 +6345,8 @@ body.dashboard-body .dashboard-shell .recent-orders-card:focus-within {
 }
 @media (max-width: 768px) {
   body.dashboard-body .dashboard-shell .owner-widgets {
-    margin-top: 12px;
-    gap: 12px;
+    margin-top: 16px;
+    gap: 14px;
   }
   body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) {
     padding-bottom: 14px;

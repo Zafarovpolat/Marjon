@@ -44,7 +44,7 @@ async def test_income_minus_historical_cost_for_same_paid_orders_no_payment_join
         assert len(result["order_rows"]) == result["today_orders"]
         assert result["order_rows"][0]["id"] == str(paid.id)
         assert result["order_rows"][0]["status"] == "completed"
-        assert result["order_rows"][0]["date_label"] == "15.10 17:00"
+        assert result["order_rows"][0]["date_label"] == "17.10 17:00"
         assert sum(Decimal(row["amount"]) for row in result["order_rows"]) == Decimal(result["orders_total"]) == 220
         assert sum(Decimal(row["amount"]) for row in result["payment_methods"]) == 220
         assert len(result["sales"]) == 24
@@ -192,10 +192,68 @@ async def test_web_chart_uses_payment_hour_and_payment_local_day_not_creation(re
         assert before["today_orders"] == 0
         after = await owner_financials(db, company.id, date(2026, 10, 18), date(2026, 10, 18))
         assert after["today_orders"] == 1
-        assert after["order_rows"][0]["date_label"] == "17.10 17:18"
+        assert after["order_rows"][0]["date_label"] == "18.10 00:05"
         assert after["sales"][0]["chart_label"] == "00:00"
         assert after["sales"][0]["orders_count"] == 1
         assert sum(row["orders_count"] for row in after["sales"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_order_rows_sort_by_payment_time_and_match_hourly_chart(report_engine):
+    from app.modules.payments.models import Payment
+
+    async with AsyncSession(report_engine, expire_on_commit=False) as db:
+        company, branch, product, _, _ = await seed(db)
+        # The older order is paid last. Its first partial payment must not
+        # determine either the row position or the graph's payment hour.
+        older = await add_order(db, company, branch, product, payments=(("completed", 100),),
+                                paid_at=datetime(2026, 10, 17, 12, 5, tzinfo=timezone.utc))
+        newer = await add_order(db, company, branch, product,
+                                paid_at=datetime(2026, 10, 17, 13, 59, tzinfo=timezone.utc))
+        newer.created_at = datetime(2026, 10, 16, 12, tzinfo=timezone.utc)
+        final_stamp = datetime(2026, 10, 17, 15, 5, tzinfo=timezone.utc)
+        db.add(Payment(company_id=company.id, order_id=older.id, amount=120, method="cash",
+                       status="completed", created_at=final_stamp, updated_at=final_stamp))
+        await cost(db, older, 20)
+        await cost(db, newer, 20)
+        await db.flush()
+
+        result = await owner_financials(db, company.id, DAY, DAY)
+        assert [row["id"] for row in result["order_rows"]] == [str(older.id), str(newer.id)]
+        assert [row["date_label"] for row in result["order_rows"]] == ["17.10 20:05", "17.10 18:59"]
+        assert result["sales"][20]["orders_count"] == 1
+        assert result["sales"][18]["orders_count"] == 1
+        assert result["sales"][17]["orders_count"] == 0
+        assert Decimal(result["sales"][20]["income"]) == 220
+        assert Decimal(result["sales"][18]["income"]) == 220
+        assert sum(row["orders_count"] for row in result["sales"]) == result["today_orders"] == 2
+        assert sum(Decimal(row["income"]) for row in result["sales"]) == Decimal(result["income_total"]) == 440
+
+
+@pytest.mark.asyncio
+async def test_minute_period_filters_cards_rows_chart_and_paid_top_together(report_engine):
+    from app.modules.analytics.service import AnalyticsService
+
+    async with AsyncSession(report_engine, expire_on_commit=False) as db:
+        company, branch, product, _, _ = await seed(db)
+        for hour, minute, second in [(15, 59, 59), (16, 0, 0), (18, 59, 59), (19, 0, 0)]:
+            order = await add_order(db, company, branch, product,
+                                    paid_at=datetime(2026, 10, 17, hour, minute, second, tzinfo=timezone.utc))
+            await cost(db, order, 20)
+        result = await owner_financials(db, company.id, DAY, DAY, web_timezone="Asia/Tashkent",
+                                        time_from="21:00", time_to="23:59")
+        assert result["today_orders"] == len(result["order_rows"]) == 2
+        assert result["income_total"] == "440.00"
+        assert result["today_revenue"] == "360.00"
+        assert result["avg_check"] == "220.00"
+        assert [row["date_label"] for row in result["order_rows"]] == ["17.10 23:59", "17.10 21:00"]
+        assert result["sales"][21]["orders_count"] == result["sales"][23]["orders_count"] == 1
+        assert sum(row["orders_count"] for row in result["sales"][:21]) == 0
+        top = await AnalyticsService(db).top_products(company.id, 5, DAY, DAY, confirmed_only=True,
+                                                      web_timezone="Asia/Tashkent", time_from="21:00", time_to="23:59")
+        assert len(top) == 1
+        assert Decimal(str(top[0].quantity_sold)) == 4
+        assert (await owner_financials(db, company.id, DAY, DAY))["today_orders"] == 3
 
 
 @pytest.mark.asyncio
@@ -258,3 +316,11 @@ async def test_owner_financials_api_access_and_range(client):
     assert Decimal(response.json()["today_revenue"]) == 0
     invalid = await client.get(path, params={"date_from": "2026-10-18", "date_to": "2026-10-17"}, headers=headers)
     assert invalid.status_code == 422
+    for route in [path, "/analytics/products/paid-top"]:
+        timed = await client.get(route, params={**params, "time_from": "21:00", "time_to": "23:59"}, headers=headers)
+        assert timed.status_code == 200, timed.text
+        bad_time = await client.get(route, params={**params, "time_from": "25:00"}, headers=headers)
+        assert bad_time.status_code == 422
+        reversed_time = await client.get(route, params={"date_from": "2026-10-17", "date_to": "2026-10-17",
+                                                      "time_from": "23:00", "time_to": "21:00"}, headers=headers)
+        assert reversed_time.status_code == 422

@@ -134,6 +134,7 @@ class ReceiptData:
     waiter_name: str | None = None
     printed_at: datetime = field(default_factory=datetime.now)
     staff_label: str = "Официант"
+    receipt_staff: list[dict[str, str]] = field(default_factory=list)
 
 
 @dataclass
@@ -225,6 +226,8 @@ class EscPosFormatter:
     # тут нет; bottomOrderNumber — новый блок, дефолт зеркалит фронтенд.
     _DEFAULT_BLOCK_STYLES: dict[str, dict] = {
         "restaurantName": {"size": "large", "align": "center", "weight": "bold"},
+        "address": {"align": "center"},
+        "phone": {"align": "center"},
         "orderNumber": {"size": "standard", "align": "center", "weight": "bold"},
         "dateTime": {"size": "standard", "align": "center", "weight": "bold"},
         "total": {"size": "xlarge", "align": "left", "weight": "standard"},
@@ -432,7 +435,12 @@ class EscPosFormatter:
         if defaults is None:
             defaults = self._DEFAULT_BLOCK_STYLES
         styles = template.get("blockStyles") or {}
-        return {**defaults.get(key, {}), **(styles.get(key) or {})}
+        merged = {**defaults.get(key, {}), **(styles.get(key) or {})}
+        # Contact blocks have no alignment control. Older templates contain
+        # the generic hidden "left" default; do not let it override centering.
+        if key in {"address", "phone"}:
+            merged["align"] = "center"
+        return merged
 
     def _kitchen_style(self, template: dict, key: str) -> dict:
         """Аналог _block_style для чек-повара: свои дефолты (CHEF_DEFAULT_BLOCK_STYLES)
@@ -753,7 +761,9 @@ class EscPosFormatter:
             elif block == "table" and data.table_number:
                 push("info", self._info_row(template, "table", "Номер стола:", str(data.table_number)))
             elif block == "waiter" and (data.waiter_name or data.cashier_name):
-                push("info", self._info_row(template, "waiter", f"{data.staff_label}:", data.waiter_name or data.cashier_name))
+                staff = data.receipt_staff or [{"label": data.staff_label, "name": data.waiter_name or data.cashier_name}]
+                for person in staff:
+                    push("info", self._info_row(template, "waiter", f"{person['label']}:", person["name"]))
             elif block == "dateTime":
                 # Order creation time (data.printed_at is set to it by
                 # PrinterService), no seconds — matches formatCustomerDate().

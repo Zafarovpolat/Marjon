@@ -154,6 +154,8 @@ export function buildDashboardPeriodSearch(apiRange, currentSearch, isDev = impo
     date_from: apiRange.date_from,
     date_to: apiRange.date_to,
   });
+  if (apiRange.time_from) params.set("time_from", apiRange.time_from);
+  if (apiRange.time_to) params.set("time_to", apiRange.time_to);
   if (isDashboardPreviewEnabled(currentSearch, isDev)) params.set("previewData", "1");
   return params.toString();
 }
@@ -232,6 +234,7 @@ export default function OwnerDashboard() {
     dashboardService.loadOwnerOverview({
       dateFrom: dashboardPeriodParams.date_from,
       dateTo: dashboardPeriodParams.date_to,
+      ...(dashboardPeriodParams.time_from ? { timeFrom: dashboardPeriodParams.time_from, timeTo: dashboardPeriodParams.time_to } : {}),
       signal: request.signal,
     }).then(([
       dashboardRes,
@@ -400,7 +403,9 @@ export default function OwnerDashboard() {
         return {
           id: `#${order.order_number || order.id?.slice(0, 6)}`,
           date: `${dateLabel} ${time}`,
-          place: order.table_number ? `Стол ${order.table_number}` : order.order_type || "—",
+          place: order.table_number ? `Стол ${order.table_number}` : ({
+            delivery: "Доставка", delivery_app: "Доставка", takeaway: "С собой", pickup: "С собой", dine_in: "На стол",
+          }[order.order_type] || "—"),
           amount: formatMoney(order.total_amount || 0),
           status: ready ? "Готов" : order.status === "cancelled" ? "Отменён" : "В работе",
           // Канонический код статуса: карточка рисует его общим OrderStatus

@@ -338,6 +338,19 @@ describe("ReceiptSettingsPage — logo block (real upload, no fake image)", () =
     expect(document.querySelector("img.receipt-preview__logo")).toBeNull();
   });
 
+  it("allows a PNG with missing browser MIME type and rejects oversized files", async () => {
+    render(<ReceiptSettingsPage />);
+    await screen.findByRole("heading", { name: "Настройка чека" });
+    const input = document.querySelector('.receipt-logo-field input[type="file"]');
+    fireEvent.change(input, { target: { files: [pngFile("logo.PNG", "")] } });
+    await waitFor(() => expect(settingsService.uploadCompanyLogo).toHaveBeenCalledTimes(1));
+    await screen.findByText("Логотип загружен.");
+    const oversized = new File([new Uint8Array(5 * 1024 * 1024 + 1)], "large.png", { type: "image/png" });
+    fireEvent.change(input, { target: { files: [oversized] } });
+    expect(await screen.findByText("Логотип должен быть не больше 5 МБ.")).toBeInTheDocument();
+    expect(settingsService.uploadCompanyLogo).toHaveBeenCalledTimes(1);
+  });
+
   it("surfaces a failed upload truthfully without faking the logo", async () => {
     settingsService.uploadCompanyLogo.mockRejectedValueOnce(
       Object.assign(new Error("boom"), { response: { status: 403, data: { detail: "Forbidden" } } }),

@@ -663,6 +663,16 @@ describe("computeFitHeightScale contract (modal receipt only)", () => {
   const PAPER_H = 742;
   const PAD = FIT_PAD_TOP + FIT_PAD_BOTTOM;
 
+  it("strictly contains very long dialog receipts and caps short ones at 85%", () => {
+    const options = { minScale: 0, maxScale: 0.85 };
+    expect(computeFitHeightScale(430, 440, 500, 700, options)).toBe(0.85);
+    for (const paperHeight of [1000, 2000, 5000]) {
+      const scale = computeFitHeightScale(430, 440, paperHeight, 600, options);
+      expect(paperHeight * scale + PAD).toBeCloseTo(600, 5);
+      expect(scale).toBeLessThan(FIT_MIN_HEIGHT_SCALE);
+    }
+  });
+
   it("scales down so the whole paper fits the available height", () => {
     const scale = computeFitHeightScale(PAPER_W, 500, PAPER_H, 701);
     // Рамка не масштабируется: (701 - 48) / 742.

@@ -5,6 +5,20 @@ export function normalizeSeparator(value) {
   };
 }
 
+// Match _RasterCanvas.divider, including Pillow's inclusive end pixels:
+// 11 black dots followed by 7 white dots; weights are 1/2/3 printer dots.
+export function rasterRuleGeometry(separator, paperSize = 80) {
+  const { pattern, weight } = normalizeSeparator(separator);
+  const width = (Number(paperSize) === 58 ? 384 : 576) - 2 * 16 + 1;
+  const thickness = { thin: 1, medium: 2, bold: 3 }[weight];
+  const segments = [];
+  for (let x = 0; x < width; x += pattern === "solid" ? width : 18) {
+    const length = pattern === "solid" ? width : Math.min(11, width - x);
+    segments.push(`M${x} 0h${length}v${thickness}h-${length}Z`);
+  }
+  return { width, thickness, path: segments.join("") };
+}
+
 export function receiptStaffLabel(order) {
   if (["Кассир", "Официант"].includes(order.staff_label)) return order.staff_label;
   const role = order.waiter_role || order.staff_role || order.creator_role;

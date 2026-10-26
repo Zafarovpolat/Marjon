@@ -179,10 +179,10 @@ async def test_waiters_report_aggregates_real_orders_without_double_counting(cli
     assert alisher | {} == {
         "waiter_id": waiter_a["id"],
         "name": "Алишер",
-        "orders_count": 3,
+        "orders_count": 2,
         "orders_total": "100.00",
-        "takeaway_delivery_total": "80.00",
-        "service_total": "19.00",
+        "takeaway_delivery_total": "50.00",
+        "service_total": "17.00",
         "waiter_service_total": "1.00",
         "dishes_count": "4.000",
         "dishes": [
@@ -191,10 +191,10 @@ async def test_waiters_report_aggregates_real_orders_without_double_counting(cli
         ],
     }
     assert report["totals"] == {
-        "orders_count": 4,
+        "orders_count": 3,
         "orders_total": "120.00",
-        "takeaway_delivery_total": "80.00",
-        "service_total": "19.00",
+        "takeaway_delivery_total": "50.00",
+        "service_total": "17.00",
         "waiter_service_total": "1.20",
         "dishes_count": "5.000",
     }
@@ -216,13 +216,13 @@ async def test_waiters_report_aggregates_real_orders_without_double_counting(cli
     )
     assert selected.status_code == 200, selected.text
     assert len(selected.json()["rows"]) == 1
-    assert selected.json()["rows"][0]["waiter_service_total"] == "24.88"
-    assert selected.json()["totals"]["waiter_service_total"] == "24.88"
+    assert selected.json()["rows"][0]["waiter_service_total"] == "20.88"
+    assert selected.json()["totals"]["waiter_service_total"] == "20.88"
 
     component_cases = [
         ({"include_orders": "true", "include_takeaway_delivery": "false", "include_service": "false"}, "100.00"),
-        ({"include_orders": "false", "include_takeaway_delivery": "true", "include_service": "false"}, "80.00"),
-        ({"include_orders": "false", "include_takeaway_delivery": "false", "include_service": "true"}, "19.00"),
+        ({"include_orders": "false", "include_takeaway_delivery": "true", "include_service": "false"}, "50.00"),
+        ({"include_orders": "false", "include_takeaway_delivery": "false", "include_service": "true"}, "17.00"),
     ]
     for toggles, expected in component_cases:
         result = await client.get(
@@ -266,7 +266,7 @@ async def test_waiters_report_aggregates_real_orders_without_double_counting(cli
 
 
 @pytest.mark.asyncio
-async def test_waiter_filter_options_use_active_company_waiter_roles_only(client):
+async def test_waiter_filter_options_use_active_company_waiter_and_cashier_roles_only(client):
     suffix = uuid4().hex[:8]
     a_headers, _ = await register_company(
         client, slug=f"waiter-filter-a-{suffix}", email=f"filter-a-{suffix}@example.com"
@@ -292,9 +292,12 @@ async def test_waiter_filter_options_use_active_company_waiter_roles_only(client
     response = await client.get("/reports/waiters/filters", headers=a_headers)
     assert response.status_code == 200, response.text
     assert response.json() == {
-        "waiters": [{"value": waiter_a["id"], "label": "Официант A"}]
+        "waiters": [
+            {"value": cashier_a["id"], "label": "Кассир A"},
+            {"value": waiter_a["id"], "label": "Официант A"},
+        ]
     }
-    assert cashier_a["id"] not in response.text
+    assert cashier_a["id"] in response.text
     assert waiter_b["id"] not in response.text
     assert inactive["id"] not in response.text
 

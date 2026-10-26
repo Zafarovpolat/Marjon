@@ -4,6 +4,88 @@
   overflow-y: auto;
 }
 
+/* Profit detail: one compact heading row and the remaining height for rows.
+   Other KPI dialogs retain their existing layout and table sizing. */
+body.dashboard-body .kpi-info-backdrop.kpi-info-backdrop--profit-detail {
+  padding: 16px;
+  place-items: center;
+}
+body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail {
+  box-sizing: border-box;
+  height: min(980px, calc(100dvh - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 18px 22px 20px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail .kpi-info-window__head {
+  flex: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  margin: 0;
+  min-height: 50px;
+}
+body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail .kpi-info-window__profit-title {
+  grid-column: 1;
+  grid-row: 1;
+  justify-content: flex-start;
+  align-items: center;
+  text-align: left;
+  min-width: 0;
+  gap: 8px;
+}
+body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail .kpi-info-window__head > .kpi-info-window__value {
+  grid-column: 2;
+  grid-row: 1;
+  justify-content: center;
+  align-items: baseline;
+  flex-wrap: nowrap;
+  text-align: center;
+  margin: 0;
+  gap: 8px;
+  white-space: nowrap;
+  color: #0b1f3f;
+}
+body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail .kpi-info-window__value strong {
+  font-size: clamp(28px, 3vw, 40px);
+}
+body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail .kpi-info-window__close {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+}
+body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail > .revenue-products {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+}
+body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail .revenue-products__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+}
+@media (max-width: 640px) {
+  body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail {
+    padding: 14px;
+  }
+  body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail .kpi-info-window__head {
+    grid-template-columns: minmax(0, 1fr) 38px;
+    gap: 10px;
+  }
+  body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail .kpi-info-window__head > .kpi-info-window__value {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail .kpi-info-window__close {
+    grid-column: 2;
+  }
+}
+
 .kpi-info-window.kpi-info-window--coming-soon {
   min-height: 290px;
   display: flex;

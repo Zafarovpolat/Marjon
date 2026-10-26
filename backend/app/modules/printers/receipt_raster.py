@@ -414,7 +414,9 @@ def render_customer_receipt_raster(data: ReceiptData, template: dict | None, pap
             elif block == "waiter" and (data.waiter_name or data.cashier_name):
                 boundary("info")
                 font, align = _font_for(template, helper, "waiter")
-                canvas.text_row(f"{data.staff_label}:", data.waiter_name or data.cashier_name, font, align, gap(8))
+                staff = data.receipt_staff or [{"label": data.staff_label, "name": data.waiter_name or data.cashier_name}]
+                for person in staff:
+                    canvas.text_row(f"{person['label']}:", person["name"], font, align, gap(8))
             elif block == "dateTime":
                 boundary("info")
                 font, align = _font_for(template, helper, "dateTime")
