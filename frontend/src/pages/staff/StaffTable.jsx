@@ -27,11 +27,15 @@ export default function StaffTable({
   // but drop the access column entirely (7 columns, no invisible placeholder).
   isManager = false,
   isWarehouse = false,
+  // KITCHEN-01: повар — та же продуктовая презентация (аватар-заглушка,
+  // статус «Активен/Неактивен», колонка прав). Раньше кухня рисовала легаси-
+  // таблицу с инициалами и «#активно/#архив».
+  isKitchen = false,
   // Принтеры компании — чтобы в строке показать закреплённый принтер
   // (в строке лежит только printer_id).
   printers = [],
 }) {
-  const isProduct = isCashier || isWaiter || isMonoblock || isManager || isWarehouse;
+  const isProduct = isCashier || isWaiter || isMonoblock || isManager || isWarehouse || isKitchen;
   const showAccess = !(isManager || isWarehouse);
   // STAFF-PRINTER-SCOPE-02: привязка принтера — свойство самой записи, а не
   // грант «Показать кассиров»: раньше имя рисовалось только в ветке моноблока
@@ -135,6 +139,20 @@ export default function StaffTable({
                             aria-hidden="true"
                           />
                           Показать кассиров
+                        </span>
+                      </span>
+                    ) : isKitchen ? (
+                      // KITCHEN-01: у повара предметный грант один — печать на
+                      // принтер повара (can_cook_printer). Остальные права
+                      // кухни живут в словаре permissions и в колонке не
+                      // размазываются, иначе ячейка превращается в список.
+                      <span className="staff-permission staff-permission--column">
+                        <span className="staff-permission-main">
+                          <span
+                            className={`staff-permission-dot${employee.canCookPrinter ? "" : " is-off"}`}
+                            aria-hidden="true"
+                          />
+                          Принтер повара
                         </span>
                       </span>
                     ) : (
