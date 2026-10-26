@@ -12,7 +12,7 @@ const STATIC_INDEX = [
   { type: "Сотрудники", label: "Официант", icon: "bi-person", to: "/users/waiter", keywords: "официант зал waiter" },
   { type: "Сотрудники", label: "Кассир", icon: "bi-cash-coin", to: "/users/cashier", keywords: "кассир касса cashier" },
   { type: "Сотрудники", label: "Моноблок", icon: "bi-pc-display", to: "/users/monoblock", keywords: "моноблок терминал рабочее место monoblock pos" },
-  { type: "Сотрудники", label: "Кухня", icon: "bi-display", to: "/users/kitchen", keywords: "кухня повар kds kitchen" },
+  { type: "Сотрудники", label: "Повар", icon: "bi-chef-hat", to: "/users/kitchen", keywords: "повар кухня kds kitchen cook" },
   { type: "Сотрудники", label: "Менеджер", icon: "bi-shield-lock", to: "/users/manager", keywords: "менеджер管 manager" },
   { type: "Сотрудники", label: "Все сотрудники", icon: "bi-people", to: "/users", keywords: "все сотрудники команда staff" },
 

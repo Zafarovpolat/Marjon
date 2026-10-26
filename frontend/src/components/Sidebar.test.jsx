@@ -192,14 +192,13 @@ describe("OWNER Sidebar", () => {
     [
       "/users/cashier",
       "/users/waiter",
+      "/users/kitchen",
       "/users/monoblock",
       "/users/manager",
       "/users/warehouse",
     ].forEach((href) => expect(getLinkByHref(href)).toBeInTheDocument());
-    // Courier + Cook hidden from Employees navigation (routes stay alive).
-    ["/users/courier", "/users/kitchen"].forEach((href) =>
-      expect(getLinkByHref(href)).not.toBeInTheDocument(),
-    );
+    // Courier stays hidden from Employees navigation (the route stays alive).
+    expect(getLinkByHref("/users/courier")).not.toBeInTheDocument();
   });
 
   it("shows OWNER account links", async () => {

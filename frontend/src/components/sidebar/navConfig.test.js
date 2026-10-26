@@ -34,10 +34,14 @@ describe("OWNER sidebar navigation order", () => {
     ]);
   });
 
-  it("shows the approved Employees submenu without Courier and Cook", () => {
+  it("shows the Employees submenu with Cook but without Courier", () => {
+    // Повар вернулся в меню вместе с экраном кухни: без него в раздел
+    // «Сотрудники → Кухня» нельзя было попасть из интерфейса, только по
+    // прямой ссылке /users/kitchen. Курьер по-прежнему скрыт.
     expect(childLabels("users")).toEqual([
       "Кассир",
       "Официант",
+      "Повар",
       "Моноблок",
       "Менеджер",
       "Завсклад",
@@ -47,12 +51,14 @@ describe("OWNER sidebar navigation order", () => {
     expect(childPaths("users")).toEqual([
       "/users/cashier",
       "/users/waiter",
+      "/users/kitchen",
       "/users/monoblock",
       "/users/manager",
       "/users/warehouse",
       "/users/login-history",
       "/users/attendance",
     ]);
+    expect(childPaths("users")).not.toContain("/users/courier");
   });
 
   it("keeps Настройка профиля out of the Settings submenu (available from user menu only)", () => {
