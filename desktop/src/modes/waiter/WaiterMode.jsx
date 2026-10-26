@@ -82,8 +82,15 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
 
   useEffect(() => {
     loadData()
-    const id = setInterval(loadData, 20000)
-    return () => clearInterval(id)
+    // MOBILE-ORDER-SYNC: тот же короткий такт, что на кассе — заказ,
+    // принятый с другого устройства, появляется на доске зала за секунды.
+    const id = setInterval(loadData, 5000)
+    const onFocus = () => loadData()
+    window.addEventListener('focus', onFocus)
+    return () => {
+      clearInterval(id)
+      window.removeEventListener('focus', onFocus)
+    }
   }, [loadData])
 
   useEffect(() => {

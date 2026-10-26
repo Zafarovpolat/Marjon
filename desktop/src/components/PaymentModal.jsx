@@ -175,7 +175,7 @@ export default function PaymentScreen({
           <h3>{t('debt_title')}</h3>
           <div style={{ width: 40 }} />
         </header>
-        <div className="pay-screen__body">
+        <div className="pay-screen__body pay-screen__body--form">
           <div className="pay-order__cash">
             <div className="pay-order__change"><span>{t('to_pay_label')}</span><strong>{fmt(total)} {t('currency')}</strong></div>
             <div className="pay-order__change pay-order__change--short"><span>{t('debt_left')}</span><strong>{fmt(dueNow)} {t('currency')}</strong></div>
@@ -241,45 +241,8 @@ export default function PaymentScreen({
           ))}
         </div>
 
-        {/* Скидка + официант — компактно */}
-        <div className="pay-screen__tools">
-          {onApplyDiscount && (
-            <div className="pay-screen__tool">
-              <label className="pay-dialog__disc">
-                <span className="pay-dialog__disc-label">{t('discount_word')}</span>
-                <div className="pay-dialog__disc-row">
-                  <input
-                    type="text" inputMode="numeric" data-keyboard="num"
-                    className="pay-dialog__disc-input"
-                    value={discPct} disabled={act === 'discount'} placeholder="0"
-                    onChange={(e) => setDiscPct(sanitizeDecimal(e.target.value, 0).slice(0, 3))}
-                  />
-                  <span className="pay-dialog__disc-unit">%</span>
-                  <button
-                    type="button" className="btn btn--sm"
-                    disabled={act === 'discount' || !discPct}
-                    onClick={applyDiscount}
-                  >
-                    {act === 'discount' ? spin : t('apply')}
-                  </button>
-                </div>
-              </label>
-            </div>
-          )}
-
-          {onSetWaiter && staff.length > 0 && (
-            <div className="pay-screen__tool">
-              <WaiterPicker
-                value={order?.waiter_id || ''}
-                staff={staff}
-                label={t('change_waiter')}
-                disabled={act === 'waiter'}
-                onChange={(waiterId) => run('waiter', () => onSetWaiter(order, waiterId || null))}
-              />
-              {act === 'waiter' && spin}
-            </div>
-          )}
-        </div>
+        {/* Скидка + официант — переехали в нижнюю панель, к сумме полученных
+            денег: три органа управления оплатой стоят одной строкой. */}
 
         {/* Возврат в закрытый заказ */}
         {reopening && (
@@ -321,36 +284,10 @@ export default function PaymentScreen({
           )}
         </div>
 
-        {/* Сумма к получению — одна на любой способ оплаты.
-            В возвращённом заказе поля нет: там либо возврат клиенту, либо
-            доплата за добавленные блюда, а платёж всё равно пишется на полный
-            новый итог (прежние платежи уходят в refunded). */}
-        {method !== 'debt' && !reopening && (
-          <div className="pay-amount">
-            <label className="pay-amount__label" htmlFor="pay-amount-input" onClick={fillDue}>
-              {method === 'card' ? t('card_amount') : t('cash_received')}
-            </label>
-            <div className="pay-amount__row">
-              <input
-                id="pay-amount-input"
-                type="text" inputMode="decimal" data-keyboard="num"
-                className="pay-amount__input"
-                value={amount}
-                disabled={busy}
-                placeholder={String(Math.round(dueNow))}
-                onChange={(e) => setAmount(sanitizeDecimal(e.target.value, 2))}
-              />
-              <span className="pay-amount__cur">{t('currency')}</span>
-            </div>
-            {(change > 0 || short > 0 || cardOver) && (
-              <div className="pay-amount__hint">
-                {change > 0 && <span className="pay-amount__hint--change">{t('change')}: {fmt(change)} {t('currency')}</span>}
-                {short > 0 && <span className="pay-amount__hint--short">{t('not_enough')}: {fmt(short)} {t('currency')}</span>}
-                {cardOver && <span className="pay-amount__hint--short">{t('payment_card_over_total')}</span>}
-              </div>
-            )}
-          </div>
-        )}
+        {/* Сумма к получению переехала в нижнюю панель — рядом со скидкой и
+            сменой официанта. В возвращённом заказе поля нет: там либо возврат
+            клиенту, либо доплата за добавленные блюда, а платёж всё равно
+            пишется на полный новый итог (прежние платежи уходят в refunded). */}
 
         {Number(order?.discount_amount) > 0 && (
           <div className="pay-order__change pay-order__change--discount">
@@ -370,27 +307,101 @@ export default function PaymentScreen({
           <strong>{fmt(total)} {t('currency')}</strong>
         </button>
 
-        <div className="pay-screen__actions">
-          <div className="pay-screen__row">
-            {onReassign && order?.table_number && (
-              <button className="btn btn--outline btn--eq" onClick={() => onReassign(order)}>
+        {/* Одна строка управления оплатой: скидка · смена официанта ·
+            полученная сумма (+ смена стола, если заказ за столом). Раньше
+            каждое поле шло отдельным блоком и вытесняло друг друга. */}
+        <div className="pay-screen__controls">
+          {onApplyDiscount && (
+            <div className="pay-screen__control">
+              <label className="pay-dialog__disc">
+                <span className="pay-dialog__disc-label">{t('discount_word')}</span>
+                <div className="pay-dialog__disc-row">
+                  <input
+                    type="text" inputMode="numeric" data-keyboard="num"
+                    className="pay-dialog__disc-input"
+                    value={discPct} disabled={act === 'discount'} placeholder="0"
+                    onChange={(e) => setDiscPct(sanitizeDecimal(e.target.value, 0).slice(0, 3))}
+                  />
+                  <span className="pay-dialog__disc-unit">%</span>
+                  <button
+                    type="button" className="btn btn--sm"
+                    disabled={act === 'discount' || !discPct}
+                    onClick={applyDiscount}
+                  >
+                    {act === 'discount' ? spin : t('apply')}
+                  </button>
+                </div>
+              </label>
+            </div>
+          )}
+
+          {onSetWaiter && staff.length > 0 && (
+            <div className="pay-screen__control">
+              <WaiterPicker
+                value={order?.waiter_id || ''}
+                staff={staff}
+                label={t('change_waiter')}
+                disabled={act === 'waiter'}
+                onChange={(waiterId) => run('waiter', () => onSetWaiter(order, waiterId || null))}
+              />
+              {act === 'waiter' && spin}
+            </div>
+          )}
+
+          {method !== 'debt' && !reopening && (
+            <div className="pay-screen__control">
+              <div className="pay-amount pay-amount--inline">
+                <label className="pay-dialog__disc pay-amount__field" htmlFor="pay-amount-input">
+                  <span className="pay-dialog__disc-label">
+                    {method === 'card' ? t('card_amount') : t('cash_received')}
+                  </span>
+                  <div className="pay-dialog__disc-row">
+                    <input
+                      id="pay-amount-input"
+                      type="text" inputMode="decimal" data-keyboard="num"
+                      className="pay-dialog__disc-input pay-amount__input"
+                      value={amount}
+                      disabled={busy}
+                      placeholder={String(Math.round(dueNow))}
+                      onClick={fillDue}
+                      onChange={(e) => setAmount(sanitizeDecimal(e.target.value, 2))}
+                    />
+                    <span className="pay-dialog__disc-unit">{t('currency')}</span>
+                  </div>
+                </label>
+                {(change > 0 || short > 0 || cardOver) && (
+                  <div className="pay-amount__hint">
+                    {change > 0 && <span className="pay-amount__hint--change">{t('change')}: {fmt(change)} {t('currency')}</span>}
+                    {short > 0 && <span className="pay-amount__hint--short">{t('not_enough')}: {fmt(short)} {t('currency')}</span>}
+                    {cardOver && <span className="pay-amount__hint--short">{t('payment_card_over_total')}</span>}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {onReassign && order?.table_number && (
+            <div className="pay-screen__control pay-screen__control--narrow">
+              <button className="btn btn--outline pay-screen__reassign" onClick={() => onReassign(order)}>
                 {t('move_table')}
               </button>
-            )}
-            <button className={`btn btn--outline btn--eq ${printed ? 'is-done' : ''}`} disabled={act === 'print'} onClick={doPrint}>
-              {act === 'print' ? spin : printed ? <CheckCircle size={18} /> : <Printer size={18} />} {t('print_receipt')}
+            </div>
+          )}
+        </div>
+
+        {/* Три главных действия — одной строкой: печать · закрыть · отменить */}
+        <div className="pay-screen__actions">
+          <button className={`btn btn--outline btn--eq ${printed ? 'is-done' : ''}`} disabled={act === 'print'} onClick={doPrint}>
+            {act === 'print' ? spin : printed ? <CheckCircle size={18} /> : <Printer size={18} />} {t('print_receipt')}
+          </button>
+          <button className="btn btn--primary btn--lg pay-order__close btn--eq" disabled={!canComplete} onClick={doComplete}>
+            {busy ? spin : <CheckCircle size={20} />} {t('complete_order')}
+          </button>
+          {onCancel && (
+            <button className="btn btn--outline pay-order__cancel btn--eq" onClick={() => onCancel(order)}>
+              {t('cancel_order')}
             </button>
-          </div>
-          <div className="pay-screen__row">
-            {onCancel && (
-              <button className="btn btn--outline pay-order__cancel btn--eq" onClick={() => onCancel(order)}>
-                {t('cancel_order')}
-              </button>
-            )}
-            <button className="btn btn--primary btn--lg pay-order__close btn--eq" disabled={!canComplete} onClick={doComplete}>
-              {busy ? spin : <CheckCircle size={20} />} {t('complete_order')}
-            </button>
-          </div>
+          )}
         </div>
       </footer>
 

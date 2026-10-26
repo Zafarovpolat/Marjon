@@ -17,4 +17,10 @@ i18n.use(initReactI18next).init({
   interpolation: { escapeValue: false },
 });
 
+// <html lang> должен совпадать с выбранным языком: от него зависят переносы,
+// озвучка скринридером и подсветка орфографии в полях ввода.
+if (typeof document !== "undefined") {
+  document.documentElement.lang = savedLang;
+}
+
 export default i18n;

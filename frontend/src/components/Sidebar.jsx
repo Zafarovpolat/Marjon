@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import i18n from "../i18n";
 import logo from "../assets/marjon-logo.svg";
 import brandLogo from "../assets/brand/marjon-neon-logo-v110.png";
 import { logout } from "../api/client";
@@ -107,6 +108,14 @@ export default function Sidebar({ user, collapsed, onToggle }) {
   function selectLang(code) {
     setLang(code);
     localStorage.setItem("marjon_lang", code);
+    // Раньше выбор языка только писался в localStorage: интерфейс оставался
+    // на прежнем языке до перезагрузки страницы, и переключатель выглядел
+    // сломанным. Теперь язык применяется сразу и запоминается для всех
+    // экранов (в т.ч. для экрана входа).
+    try {
+      i18n.changeLanguage(code);
+      document.documentElement.lang = code;
+    } catch { /* i18n не инициализирован — язык применится после перезагрузки */ }
     setLangPanelOpen(false);
   }
 

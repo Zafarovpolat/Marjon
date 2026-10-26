@@ -3,6 +3,21 @@ import { auth } from '../shared/api'
 import { Eye, EyeOff, Delete, LogOut, Settings } from 'lucide-react'
 import { t } from '../shared/i18n'
 import { formatPhone, fullPhone, isPhoneComplete, extractPhoneDigits } from '../shared/phone'
+import logoUrl from '../assets/logo.svg'
+
+// Знак бренда — тот же SVG, что в веб-админке и в шапке десктопа.
+// Раньше на экране входа стояло просто слово «MARJON» текстом, и вход
+// выглядел как другое приложение.
+function BrandLogo() {
+  return (
+    <div className="login-card__logo">
+      <span className="login-card__logo-mark">
+        <img src={logoUrl} alt="" aria-hidden="true" />
+      </span>
+      <span className="login-card__logo-text">MARJON</span>
+    </div>
+  )
+}
 
 /**
  * LoginPage — двухрежимная страница входа.
@@ -88,7 +103,7 @@ function MonoblockLogin({ onLogin, onSettings }) {
           </button>
         )}
         <div className="login-card__header">
-          <div className="login-card__logo">MARJON</div>
+          <BrandLogo />
           <p className="login-card__subtitle">{t('lp_branch_subtitle')}</p>
         </div>
 
@@ -183,7 +198,7 @@ function PinLogin({ onLogin, onReset, branchName, orgName }) {
     <div className="login-page">
       <div className="login-card login-card--pin">
         <div className="login-card__header">
-          <div className="login-card__logo">MARJON</div>
+          <BrandLogo />
           {orgName && <p className="login-card__org">{orgName}</p>}
           {branchName && <p className="login-card__subtitle">{branchName}</p>}
         </div>

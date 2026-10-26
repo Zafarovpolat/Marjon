@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import Icon from "../Icon";
 import { sidebarLanguages } from "./navConfig";
 
@@ -28,6 +29,7 @@ export default function SidebarAccount({
   openCollapsedAccount,
   closeCollapsedAccount,
 }) {
+  const { t } = useTranslation();
   // Presence model so the panel animates OUT before unmounting (smooth close),
   // not just a hard conditional unmount. `render` keeps the node mounted while
   // closing; `closing` drives the exit animation; animationend clears it.
@@ -84,13 +86,13 @@ export default function SidebarAccount({
           {canOpenProfile ? (
             <Link className="sidebar-account__item" to="/settings/profile" role="menuitem" onClick={() => closeAccountAndSelectMenu("settings")}>
               <Icon name="bi-person-gear" size={16} />
-              <span>Настройка профиля</span>
+              <span>{t("nav.profile_settings")}</span>
             </Link>
           ) : null}
           {canOpenSupport ? (
             <Link className="sidebar-account__item" to="/settings/support" role="menuitem" onClick={() => closeAccountAndSelectMenu("settings")}>
               <Icon name="bi-headset" size={16} />
-              <span>Тех. поддержка</span>
+              <span>{t("sidebar.support")}</span>
             </Link>
           ) : null}
 
@@ -104,7 +106,7 @@ export default function SidebarAccount({
             >
               <span className="sidebar-account__lang-label">
                 <Icon name="bi-translate" size={16} />
-                Язык
+                {t("sidebar.language")}
               </span>
               <span className="sidebar-account__lang-current">
                 <span className="sidebar-account__lang-current-flag" aria-hidden="true">
@@ -118,7 +120,7 @@ export default function SidebarAccount({
               <div
                 className={`sidebar-account__lang-panel ${langClosing ? "is-closing" : ""}`}
                 role="menu"
-                aria-label="Выбор языка"
+                aria-label={t("sidebar.language")}
                 onAnimationEnd={handleLangPanelAnimEnd}
               >
                 {sidebarLanguages.map((language) => (
@@ -129,7 +131,7 @@ export default function SidebarAccount({
                     onClick={() => selectLang(language.code)}
                     role="menuitemradio"
                     aria-checked={lang === language.code}
-                    aria-label={`${language.label}: ${language.native}`}
+                    aria-label={`${t(language.labelKey, language.label)}: ${language.native}`}
                   >
                     <span className="sidebar-account__lang-flag" aria-hidden="true">
                       <img src={language.flagUrl} alt="" loading="lazy" decoding="async" />
@@ -144,13 +146,13 @@ export default function SidebarAccount({
           {canOpenStore ? (
             <Link className="sidebar-account__item" to="/store" role="menuitem" onClick={() => closeAccountAndSelectMenu("")}>
               <Icon name="bi-shop" size={16} />
-              <span>Магазин</span>
+              <span>{t("sidebar.store")}</span>
             </Link>
           ) : null}
 
           <button type="button" className="sidebar-account__item sidebar-account__item--danger" role="menuitem" onClick={handleLogout}>
             <Icon name="bi-box-arrow-right" size={16} />
-            <span>Выйти</span>
+            <span>{t("sidebar.logout_action")}</span>
           </button>
         </div>
       ) : null}

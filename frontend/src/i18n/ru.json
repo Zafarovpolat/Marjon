@@ -50,7 +50,11 @@
     "profile_settings": "Настройка профиля",
     "printer_settings": "Настройка принтеров",
     "receipt_settings": "Настройка чека",
-    "kitchen_receipt_settings": "Настройка чека повара"
+    "kitchen_receipt_settings": "Настройка чека повара",
+    "sale_categories": "Категория товаров",
+    "goods": "Товары",
+    "stop_list": "Стоп-лист",
+    "branches": "Филиалы"
   },
   "sidebar": {
     "open_menu": "Открыть меню",
@@ -62,7 +66,11 @@
     "english": "Английский",
     "logout": "Выход",
     "expand": "Развернуть",
-    "more": "Ещё"
+    "more": "Ещё",
+    "support": "Тех. поддержка",
+    "store": "Магазин",
+    "logout_action": "Выйти",
+    "mobile_navigation": "Мобильная навигация"
   },
   "topbar": {
     "date": "Дата",

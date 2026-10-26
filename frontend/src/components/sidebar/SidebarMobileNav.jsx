@@ -1,5 +1,7 @@
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import Icon from "../Icon";
+import { navLabelKey } from "./navConfig";
 
 // Мобильная нижняя навигация OWNER (панель + выдвижной ящик «Ещё»).
 // Вынесено из Sidebar.jsx (FE-07B). Вне <aside>, чтобы transform сайдбара
@@ -16,6 +18,11 @@ export default function SidebarMobileNav({
   handleLogout,
   navigate,
 }) {
+  const { t } = useTranslation();
+  const labelOf = (item) => {
+    const key = navLabelKey(item.to);
+    return key ? t(key, item.label) : item.label;
+  };
   return (
     <div className={`mobile-bottom-nav${moreOpen ? " is-more-open" : ""}`}>
       {moreOpen && (
@@ -25,7 +32,7 @@ export default function SidebarMobileNav({
             onClick={() => setMoreOpen(false)}
             aria-hidden="true"
           />
-          <div className="mobile-bottom-nav__drawer" role="dialog" aria-modal="true" aria-label="Дополнительные разделы">
+          <div className="mobile-bottom-nav__drawer" role="dialog" aria-modal="true" aria-label={t("sidebar.more")}>
             <div className="mobile-bottom-nav__drawer-handle" aria-hidden="true" />
             <nav className="mobile-bottom-nav__drawer-nav">
               {visibleNavItems.slice(4).map((item) => {
@@ -40,7 +47,7 @@ export default function SidebarMobileNav({
                     <span className="mobile-drawer-item__icon">
                       <Icon name={item.icon} size={20} />
                     </span>
-                    <span className="mobile-drawer-item__label">{item.label}</span>
+                    <span className="mobile-drawer-item__label">{labelOf(item)}</span>
                     <Icon name="bi-chevron-right" size={14} className="mobile-drawer-item__chevron" aria-hidden="true" />
                   </Link>
                 );
@@ -70,14 +77,14 @@ export default function SidebarMobileNav({
                 <span className="mobile-drawer-item__icon">
                   <Icon name="bi-box-arrow-right" size={20} />
                 </span>
-                <span className="mobile-drawer-item__label">Выйти</span>
+                <span className="mobile-drawer-item__label">{t("sidebar.logout_action")}</span>
               </button>
             </div>
           </div>
         </>
       )}
 
-      <nav className="mobile-bottom-nav__bar" aria-label="Мобильная навигация">
+      <nav className="mobile-bottom-nav__bar" aria-label={t("sidebar.mobile_navigation")}>
         {visibleNavItems.slice(0, 4).map((item) => {
           const active = item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to);
           return (
@@ -90,7 +97,7 @@ export default function SidebarMobileNav({
               <span className="mobile-nav-item__icon">
                 <Icon name={item.icon} size={20} />
               </span>
-              <span className="mobile-nav-item__label">{item.label}</span>
+              <span className="mobile-nav-item__label">{labelOf(item)}</span>
             </Link>
           );
         })}
@@ -99,13 +106,13 @@ export default function SidebarMobileNav({
             type="button"
             className={`mobile-nav-item${moreOpen ? " is-active" : ""}`}
             onClick={() => setMoreOpen((v) => !v)}
-            aria-label="Дополнительные разделы"
+            aria-label={t("sidebar.more")}
             aria-expanded={moreOpen}
           >
             <span className="mobile-nav-item__icon">
               <Icon name={moreOpen ? "bi-x-lg" : "bi-grid"} size={20} />
             </span>
-            <span className="mobile-nav-item__label">Ещё</span>
+            <span className="mobile-nav-item__label">{t("sidebar.more")}</span>
           </button>
         )}
       </nav>

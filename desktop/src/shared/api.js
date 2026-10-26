@@ -317,7 +317,10 @@ export const orders = {
     api.patch(`/pos/orders/${orderId}/items/${itemId}/waiter`, {
       waiter_id: waiterId, ...(reason ? { reason } : {}),
     }).then((r) => r.data),
-  updateStatus: (id, status) => writeQueued('patch', `/pos/orders/${id}/status`, { status }),
+  // extra — дополнительные поля статуса: сейчас это должник при закрытии
+  // «в долг» (client_name/client_phone), по ним бэкенд заводит клиента.
+  updateStatus: (id, status, extra) =>
+    writeQueued('patch', `/pos/orders/${id}/status`, { status, ...(extra || {}) }),
   cancel: (id, password, comment) => api.delete(`/pos/orders/${id}`, {
     params: { ...(password ? { password } : {}), ...(comment ? { comment } : {}) },
   }).then((r) => r.data),

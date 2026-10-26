@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import Icon from "../Icon";
-import { isNavPathActive } from "./navConfig";
+import { isNavPathActive, navLabelKey } from "./navConfig";
 
 const SUBMENU_RETRACT_MS = 320;
 
@@ -25,6 +26,13 @@ export default function SidebarNav({
 }) {
   const popoverHosts = useRef(new Map());
   const [popoverPlacement, setPopoverPlacement] = useState({ key: "", top: 0 });
+  // Подписи пунктов меню переводятся по маршруту (см. navLabelKey). Если ключа
+  // в словаре нет — показываем русскую подпись из конфига, ничего не теряем.
+  const { t } = useTranslation();
+  const labelOf = (item) => {
+    const key = navLabelKey(item.to);
+    return key ? t(key, item.label) : item.label;
+  };
   // Свёрнутый рельс показывает подкатегории поповером, поэтому инлайновая панель
   // ему не нужна. Но убрать её из DOM в тот же кадр, когда рельс начинает
   // сворачиваться, — значит потерять анимацию выхода: панель исчезает мгновенно,
@@ -78,7 +86,7 @@ export default function SidebarNav({
 
   return (
     <div className="sidebar-nav-scroll">
-      <nav className="sidebar-nav" aria-label="Навигация">
+      <nav className="sidebar-nav" aria-label={t("sidebar.navigation")}>
         {visibleNavItems.map((item) => {
         const hasChildren = Boolean(item.children?.length);
         const childActive = hasChildren && item.children.some((child) => isNavPathActive(location.pathname, child.to));
@@ -125,11 +133,11 @@ export default function SidebarNav({
                   }
                 }}
                 aria-expanded={collapsed ? popoverOpen : submenuOpen}
-                aria-label={collapsed ? item.label : undefined}
-                title={collapsed ? item.label : undefined}
+                aria-label={collapsed ? labelOf(item) : undefined}
+                title={collapsed ? labelOf(item) : undefined}
               >
                 <span className="sidebar-icon"><Icon name={item.icon} size={18} /></span>
-                <span>{item.label}</span>
+                <span>{labelOf(item)}</span>
                 <Icon name="bi-chevron-right" size={18} className="sidebar-link__chevron" aria-hidden="true" />
               </button>
               {inlineSubmenuMounted ? (
@@ -146,7 +154,7 @@ export default function SidebarNav({
                     >
                       <span className="sidebar-submenu__dot" aria-hidden="true" />
                       <span className="sidebar-submenu__icon"><Icon name={child.icon || "bi-circle"} size={child.icon ? 16 : 8} /></span>
-                      {child.label}
+                      {labelOf(child)}
                     </Link>
                   ))}
                 </div>
@@ -168,7 +176,7 @@ export default function SidebarNav({
                       }}
                     >
                       <span className="sidebar-submenu__icon"><Icon name={child.icon || "bi-circle"} size={child.icon ? 16 : 8} /></span>
-                      <span>{child.label}</span>
+                      <span>{labelOf(child)}</span>
                     </Link>
                   ))}
                 </div>
@@ -192,11 +200,11 @@ export default function SidebarNav({
                 setPinnedMenu("");
                 setOpenMenu("");
               }}
-              aria-label={collapsed ? item.label : undefined}
-              title={collapsed ? item.label : undefined}
+              aria-label={collapsed ? labelOf(item) : undefined}
+              title={collapsed ? labelOf(item) : undefined}
             >
               <span className="sidebar-icon"><Icon name={item.icon} size={18} /></span>
-              <span>{item.label}</span>
+              <span>{labelOf(item)}</span>
             </Link>
           </div>
         );
