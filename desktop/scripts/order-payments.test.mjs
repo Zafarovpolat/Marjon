@@ -88,3 +88,19 @@ test('storage failure prevents sending an unprotected payment', () => {
   assert.throws(() => submitOrderPayment(h.options), error => error.paymentErrorKey === 'payment_attempt_storage')
   assert.equal(h.calls.length, 0)
 })
+
+// Свои способы оплаты из веб-админки (Uzum, Yandex): интеграции нет — фиксируем
+// только «через что заплатили», одной суммой, без разбивки нал/карта.
+test('custom payment method pays the full total and keeps its own name', () => {
+  assert.deepEqual(buildOrderPayment(order, 'Uzum'), {
+    order_id: order.id, amount: '46000.00', method: 'Uzum',
+  })
+})
+test('custom payment method name is capped to the 30-char payments.method column', () => {
+  const payload = buildOrderPayment(order, 'X'.repeat(40))
+  assert.equal(payload.method.length, 30)
+  assert.equal(payload.amount, '46000.00')
+})
+test('debt is never submitted as a full payment', () => {
+  assert.throws(() => buildOrderPayment(order, 'debt', { cash: 46000 }), error => Boolean(error.paymentErrorKey))
+})

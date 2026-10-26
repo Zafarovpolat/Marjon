@@ -17,10 +17,25 @@ const money = value => (value / 100).toFixed(2)
 export function buildOrderPayment(order, method, detail) {
   if (!order?.id) fail('payment_invalid_amount')
   const total = cents(order.total_amount)
-  if (total <= 0 || !['cash', 'card', 'mixed'].includes(method)) fail('payment_invalid_amount')
+  if (total <= 0) fail('payment_invalid_amount')
+  const name = String(method ?? '').trim()
+  if (!name) fail('payment_invalid_amount')
+  // «В долг» — это НЕ полная оплата и никогда не проводится через /payments.
+  if (name === 'debt') fail('payment_invalid_amount')
+  // Способы оплаты, добавленные в веб-админке (Uzum, Yandex и др.), приходят
+  // своим названием: интеграции нет, фиксируем только «через что заплатили» —
+  // ровно этим значением отчёт и покажет способ оплаты. Разбивки нал/карта
+  // у такого способа нет, оплата идёт одной суммой.
+  if (!['cash', 'card', 'mixed'].includes(name)) {
+    return {
+      order_id: order.id,
+      amount: money(total),
+      method: name.slice(0, 30),
+    }
+  }
   const entered = detail && (detail.cash !== undefined || detail.card !== undefined)
-  const receivedCash = entered ? cents(detail.cash ?? 0) : method === 'cash' ? total : 0
-  const card = entered ? cents(detail.card ?? 0) : method === 'card' ? total : 0
+  const receivedCash = entered ? cents(detail.cash ?? 0) : name === 'cash' ? total : 0
+  const card = entered ? cents(detail.card ?? 0) : name === 'card' ? total : 0
   if (card > total || (card === total && receivedCash > 0)) fail('payment_card_over_total')
   if (receivedCash + card < total) fail('payment_not_full')
   const cash = total - card

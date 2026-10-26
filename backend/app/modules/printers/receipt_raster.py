@@ -444,6 +444,14 @@ def render_customer_receipt_raster(data: ReceiptData, template: dict | None, pap
                     canvas.item_row(item.name, format_quantity(item.qty), f"{item.total:,.0f}", font, qty_w, total_w, gap(6))
                     for mod in item.modifiers:
                         canvas.line_of_text(f"  + {mod}", font, "left", gap(4))
+                    # Комментарий к блюду печатаем всегда — пожелание гостя
+                    # должно быть в чеке, а не только в шаблоне с «Комментарием».
+                    if getattr(item, "note", None):
+                        canvas.line_of_text(f"  * {item.note}", font, "left", gap(4))
+                # Отменённые блюда — с причиной отмены (возврат денег гостю).
+                for item in (getattr(data, "cancelled", None) or []):
+                    reason = f" — {item.cancel_reason}" if item.cancel_reason else ""
+                    canvas.line_of_text(f"  x {item.name}{reason}", font, "left", gap(4))
             elif block == "paymentMethod" and data.payment_method:
                 boundary("financial")
                 font, align = _font_for(template, helper, "paymentMethod")

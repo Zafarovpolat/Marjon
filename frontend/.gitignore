@@ -18,3 +18,11 @@ blob-report/
 # Visual-evidence screenshots produced by the browser oracle — regenerated on
 # every run, reviewed locally, never committed.
 tools/browser/__screens__/
+
+# Локальный стенд для проверки экрана кухни на мок-данных (vite + playwright).
+# Нужен только для ручной вёрстки, в сборку не входит.
+__kds_preview/
+
+# То же для страницы сотрудников: сверяем /users/kitchen с /users/cashier
+# без логина в прод. Транспорт подменён моком через alias.
+__staff_preview/

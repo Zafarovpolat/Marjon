@@ -1,365 +1,1813 @@
-/* KDS-стили кухни: крупные карточки для экрана поваров. Только токены, без hex. */
-.kds {
-  min-height: 100vh;
-  background: var(--color-bg);
-  color: var(--color-text-primary);
-  font-family: var(--font-body);
+/* ─────────────────────────────────────────────────────────────────────────
+   KDS — экран кухни.
+
+   Палитра и шрифты — только токены Marjon (src/styles/global/marjon-tokens.css):
+   navy · teal · Golos Text / Manrope / JetBrains Mono.
+
+   Почему тёмная доска: экран висит на кухне всю смену под бликами и паром,
+   светлая поверхность слепит и теряет контраст. Тёмный navy — брендовый
+   цвет (neutral-900/950), поэтому экран остаётся «в палитре», но читается
+   как рабочий инструмент, а не как раздел админки.
+
+   Цвет несёт одну мысль — возраст заказа:
+   teal (в работе) → янтарь (10 мин) → красный (20 мин).
+   Всё остальное — нейтральные линии и один акцент на действие.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Базовый сброс: страница отдельная (kitchen.html), глобального reset у неё
+   нет — без этого тело даёт отступ 8px, а padding распирает карточки. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
-.kds-topbar {
-  position: sticky;
-  top: 0;
-  z-index: 10;
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--neutral-950);
+  color: var(--neutral-100);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior: none;
+}
+
+button {
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--teal-400);
+  outline-offset: 2px;
+}
+
+.icon-spin {
+  animation: icon-spin 900ms linear infinite;
+}
+
+@keyframes icon-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Локальные токены экрана ───────────────────────────────────────────── */
+
+.kds,
+.gate {
+  --kds-bg: var(--neutral-950);
+  --kds-surface: var(--neutral-900);
+  --kds-raised: var(--neutral-800);
+  --kds-line: rgba(255, 255, 255, 0.07);
+  --kds-line-2: rgba(255, 255, 255, 0.13);
+  --kds-text: var(--neutral-100);
+  --kds-text-2: var(--neutral-300);
+  --kds-text-3: var(--neutral-400);
+  --kds-accent: var(--teal-500);
+  --kds-accent-soft: rgba(29, 181, 181, 0.13);
+  --kds-ink: var(--neutral-950);
+  --kds-late: var(--amber-500);
+  --kds-urgent: var(--red-500);
+}
+
+/* Микро-подпись: единственный способ ввести заголовок без крупного шума */
+.eyebrow {
+  margin: 0;
+  color: var(--kds-text-3);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+/* ── Каркас доски ──────────────────────────────────────────────────────── */
+
+.kds {
+  display: flex;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--kds-bg);
+}
+
+.kds__main {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  background:
+    radial-gradient(900px 420px at 10% -12%, rgba(29, 181, 181, 0.1), transparent 68%),
+    var(--kds-bg);
+}
+
+/* Точечная сетка вместо «градиентных пятен»: даёт тактильность пустому полю,
+   но не спорит с содержимым. Лежит под контентом, не перехватывает клики. */
+.kds__main::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px);
+  background-size: 26px 26px;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.kds__main > * {
+  position: relative;
+}
+
+/* ── Левая стойка ──────────────────────────────────────────────────────── */
+
+.rail {
+  display: flex;
+  flex: 0 0 76px;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 76px;
+  padding: 16px 0 18px;
+  border-right: 1px solid var(--kds-line);
+  background: var(--kds-bg);
+}
+
+.rail__mark {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-6);
-  background: var(--neutral-950);
-  color: var(--color-text-inverse);
-}
-
-.kds-topbar__title {
-  margin: 0;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: var(--kds-accent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  color: var(--kds-ink);
   font-family: var(--font-display);
-  font-size: var(--text-2xl);
-  font-weight: var(--weight-extrabold);
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
 }
 
-.kds-topbar__sub {
-  color: var(--color-dark-muted);
-  font-size: var(--text-sm);
-}
-
-.kds-topbar__controls {
-  display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
-.kds-chip {
-  border: 1px solid var(--neutral-700);
-  background: var(--neutral-900);
-  color: var(--color-text-inverse);
-  border-radius: var(--radius-full);
-  padding: var(--space-2) var(--space-4);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
-  cursor: pointer;
-}
-
-.kds-board {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: var(--space-4);
-  padding: var(--space-6);
-}
-
-.kds-card {
-  background: var(--color-card);
-  border: 1px solid var(--color-border);
-  border-left: 8px solid var(--color-success);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  padding: var(--space-5);
+.rail__conn {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  align-items: center;
+  gap: 5px;
+  color: var(--kds-text-3);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
-.kds-card--waiting {
-  border-left-color: var(--color-warning);
+.rail__conn.is-on {
+  color: var(--teal-400);
 }
 
-.kds-card--urgent {
-  border-left-color: var(--color-danger);
+.rail__conn.is-off {
+  color: var(--kds-late);
 }
 
-.kds-card__head {
+.rail__tools {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: auto;
+}
+
+.rail__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--kds-text-3);
+  cursor: pointer;
+  transition-property: background-color, color, border-color, transform;
+  transition-duration: 140ms;
+  transition-timing-function: ease-out;
+}
+
+.rail__btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--neutral-0);
+}
+
+.rail__btn:active {
+  transform: translateY(1px);
+}
+
+.rail__btn.is-on {
+  color: var(--teal-400);
+}
+
+.rail__btn--out:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--kds-urgent);
+}
+
+/* ── Шапка ─────────────────────────────────────────────────────────────── */
+
+.head {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 20px;
+  height: 88px;
+  padding: 0 22px;
+  border-bottom: 1px solid var(--kds-line);
+}
+
+.head__id {
+  min-width: 0;
+}
+
+.head__title {
+  margin: 5px 0 0;
+  overflow: hidden;
+  color: var(--neutral-0);
+  font-family: var(--font-display);
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Фильтр — сегменты на общей подложке, а не ряд отдельных пилюль */
+.head__tabs {
+  display: flex;
+  gap: 2px;
+  margin-left: 8px;
+  padding: 4px;
+  border: 1px solid var(--kds-line);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--kds-text-2);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition-property: background-color, color;
+  transition-duration: 140ms;
+  transition-timing-function: ease-out;
+}
+
+.tab:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--neutral-0);
+}
+
+.tab.is-active {
+  background: var(--kds-accent-soft);
+  color: var(--neutral-0);
+}
+
+.tab__count {
+  min-width: 10px;
+  color: var(--kds-text-3);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.tab.is-active .tab__count {
+  color: var(--teal-300);
+}
+
+.head__alarm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--kds-urgent);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  animation: alarm-breathe 2.8s ease-in-out infinite;
+}
+
+@keyframes alarm-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.62;
+  }
+}
+
+.head__clock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  margin-left: auto;
+}
+
+.clock {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--neutral-0);
+  font-family: var(--font-mono);
+  line-height: 1;
+}
+
+.clock b {
+  font-size: 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+}
+
+.clock i {
+  color: var(--kds-text-3);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.head__date {
+  color: var(--kds-text-3);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* ── Доска ─────────────────────────────────────────────────────────────── */
+
+.board {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(auto-fill, minmax(520px, 1fr));
+  align-content: start;
+  align-items: start;
+  gap: 12px;
+  padding: 18px 22px 28px;
+  overflow-y: auto;
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+  scrollbar-width: thin;
+}
+
+.board::-webkit-scrollbar {
+  width: 10px;
+}
+
+.board::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.14);
+  background-clip: content-box;
+}
+
+/* ── Чек заказа ────────────────────────────────────────────────────────── */
+
+.ticket {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--kds-line);
+  border-radius: 13px;
+  background: var(--kds-surface);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    0 18px 40px -26px rgba(0, 0, 0, 0.9);
+  animation: ticket-in 340ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes ticket-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Кайма возраста: единственный цветной элемент на весь чек */
+/* Без overflow: hidden на карточке: во flex-контейнере с auto-высотой он
+   обнуляет вклад содержимого, и чек складывается в одну шапку. Кайму
+   скругляем отдельно. */
+.ticket::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  border-radius: 13px 0 0 13px;
+  background: var(--kds-accent);
+}
+
+.ticket--late::before {
+  background: var(--kds-late);
+}
+
+.ticket--urgent::before {
+  background: var(--kds-urgent);
+}
+
+.ticket--urgent {
+  border-color: rgba(239, 68, 68, 0.3);
+  background:
+    linear-gradient(180deg, rgba(239, 68, 68, 0.055), rgba(239, 68, 68, 0) 42%),
+    var(--kds-surface);
+}
+
+/* Шапка чека: стол слева, таймер справа. Таймер всегда на одной вертикали
+   у всех чеков — глаз проверяет «кто горит» одним движением. */
+.ticket__head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: 12px;
+  padding: 14px 14px 10px 18px;
 }
 
-.kds-card__number {
-  margin: 0;
-  font-size: var(--text-3xl);
-  font-weight: var(--weight-extrabold);
+.ticket__id {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.ticket__label {
+  color: var(--kds-text-3);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.ticket__table {
+  color: var(--neutral-0);
   font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.035em;
+  line-height: 0.98;
+  text-wrap: balance;
 }
 
-.kds-card__meta {
-  color: var(--color-text-secondary);
-  font-size: var(--text-md);
+.ticket__type {
+  color: var(--neutral-0);
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  text-wrap: balance;
 }
 
-.kds-card__timer {
-  font-family: var(--font-mono);
-  font-size: var(--text-2xl);
-  font-weight: var(--weight-bold);
-  background: var(--color-subtle);
-  border-radius: var(--radius-md);
-  padding: var(--space-2) var(--space-3);
-}
-
-.kds-card__note {
-  background: var(--color-warning-bg);
-  border-radius: var(--radius-sm);
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--text-md);
-  font-weight: var(--weight-semibold);
-}
-
-.kds-card__progress {
-  height: 8px;
-  background: var(--color-subtle);
-  border-radius: var(--radius-full);
+.ticket__num {
   overflow: hidden;
+  color: var(--kds-text-3);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.kds-card__progress-bar {
-  height: 100%;
-  background: var(--color-brand);
+.ticket__timer {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  padding-top: 2px;
+  color: var(--teal-300);
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
-.kds-card__items {
-  list-style: none;
+.ticket--late .ticket__timer {
+  color: var(--kds-late);
+}
+
+.ticket--urgent .ticket__timer {
+  color: var(--kds-urgent);
+}
+
+.ticket__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.ticket--urgent .ticket__dot {
+  animation: dot-pulse 1.9s ease-out infinite;
+}
+
+@keyframes dot-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+.ticket__body {
+  display: flex;
+  /* basis auto, а не 0: иначе тело чека не участвует в расчёте высоты
+     карточки и содержимое обрезается */
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 0 14px 10px 18px;
+}
+
+.ticket__note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 7px 9px;
+  border-radius: 7px;
+  background: rgba(245, 158, 11, 0.075);
+  color: var(--amber-100);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-wrap: pretty;
+}
+
+.ticket__note svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--kds-late);
+}
+
+.ticket__dishes {
+  display: flex;
+  flex-direction: column;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+  list-style: none;
 }
 
-.kds-item {
-  display: flex;
+/* ── Позиция заказа ────────────────────────────────────────────────────── */
+
+.dish {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
-  background: var(--color-card);
+  gap: 10px;
+  min-height: 46px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+  background: transparent;
+  transition-property: background-color, opacity;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
 }
 
-.kds-item--ready {
-  opacity: 0.65;
+.dish:last-child {
+  border-bottom-color: transparent;
 }
 
-.kds-item__qty {
-  font-size: var(--text-xl);
-  font-weight: var(--weight-extrabold);
-  min-width: 52px;
+.dish.is-cooking {
+  background: linear-gradient(90deg, rgba(29, 181, 181, 0.085), rgba(29, 181, 181, 0.01) 68%);
+}
+
+.dish.is-ready {
+  background: transparent;
+}
+
+.dish__qty {
+  color: var(--neutral-200);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
   text-align: center;
-  background: var(--color-subtle);
-  border-radius: var(--radius-sm);
-  padding: var(--space-2);
 }
 
-.kds-item__body {
-  flex: 1;
+.dish__qty i {
+  margin-left: 1px;
+  color: var(--kds-text-3);
+  font-size: 10px;
+  font-style: normal;
+}
+
+.dish.is-ready .dish__qty {
+  color: var(--neutral-500);
+}
+
+.dish__text {
   display: flex;
   flex-direction: column;
+  gap: 1px;
+  min-width: 0;
 }
 
-.kds-item__name {
-  font-size: var(--text-lg);
-  font-weight: var(--weight-bold);
+.dish__name {
+  color: var(--neutral-0);
+  font-size: 15.5px;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
 }
 
-.kds-item__note {
-  color: var(--color-text-secondary);
-  font-size: var(--text-sm);
+.dish.is-ready .dish__name {
+  color: var(--kds-text-3);
+  text-decoration: line-through;
+  text-decoration-color: rgba(255, 255, 255, 0.28);
+  text-decoration-thickness: 1px;
 }
 
-.kds-item__done-mark {
-  font-size: var(--text-2xl);
-  color: var(--color-success);
-  font-weight: var(--weight-extrabold);
+.dish__mods,
+.dish__note {
+  color: var(--kds-text-3);
+  font-size: 12px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
 }
 
-.kds-btn {
-  border: none;
-  border-radius: var(--radius-md);
-  padding: var(--space-3) var(--space-4);
-  font-size: var(--text-md);
-  font-weight: var(--weight-bold);
+.dish__note {
+  color: var(--kds-late);
+  font-weight: 600;
+}
+
+.dish__tag {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 0 4px;
+  border: 1px solid rgba(29, 181, 181, 0.35);
+  border-radius: 3px;
+  color: var(--teal-300);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.dish__act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 96px;
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--kds-line-2);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--neutral-200);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
   cursor: pointer;
+  transition-property: background-color, border-color, color, transform;
+  transition-duration: 140ms;
+  transition-timing-function: ease-out;
 }
 
-.kds-btn:disabled {
-  opacity: 0.5;
+.dish__act:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--neutral-0);
+}
+
+.dish__act:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.dish__act.is-ready {
+  border-color: var(--kds-accent);
+  background: var(--kds-accent);
+  color: var(--kds-ink);
+  font-weight: 700;
+}
+
+.dish__act.is-ready:hover:not(:disabled) {
+  border-color: var(--teal-400);
+  background: var(--teal-400);
+  color: var(--kds-ink);
+}
+
+.dish__act:disabled {
+  opacity: 0.55;
   cursor: default;
 }
 
-.kds-btn--cook {
-  background: var(--color-subtle);
-  color: var(--color-text-primary);
-}
-
-.kds-btn--ready {
-  background: var(--color-brand);
-  color: var(--color-text-inverse);
-}
-
-.kds-btn--order {
-  background: var(--color-success);
-  color: var(--color-text-inverse);
-  font-size: var(--text-lg);
-  padding: var(--space-4);
-}
-
-.kds-empty {
-  padding: var(--space-10);
-  text-align: center;
-  font-size: var(--text-lg);
-  color: var(--color-text-secondary);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
+.dish__done {
+  display: inline-flex;
   align-items: center;
+  gap: 5px;
+  height: 40px;
+  padding: 0 8px;
+  color: var(--teal-300);
+  font-size: 12.5px;
+  font-weight: 600;
 }
 
-.kds-toast {
-  position: fixed;
-  bottom: var(--space-6);
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--neutral-950);
-  color: var(--color-text-inverse);
-  border-radius: var(--radius-full);
-  padding: var(--space-3) var(--space-6);
-  font-weight: var(--weight-semibold);
-  box-shadow: var(--shadow-lg);
-}
+/* ── Подвал чека ───────────────────────────────────────────────────────── */
 
-.kds-login {
-  min-height: 100vh;
+.ticket__foot {
   display: flex;
   align-items: center;
+  gap: 10px;
+  padding: 10px 14px 12px 18px;
+  border-top: 1px solid var(--kds-line);
+}
+
+/* Прогресс — счётчики блюд, а не абстрактная полоска */
+.ticket__ticks {
+  display: flex;
+  flex: 1;
+  gap: 4px;
+  min-width: 0;
+  max-width: 96px;
+}
+
+.ticket__ticks i {
+  flex: 1;
+  max-width: 22px;
+  height: 5px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.13);
+}
+
+.ticket__ticks i.is-on {
+  background: var(--kds-accent);
+}
+
+.ticket__ratio {
+  flex: 0 0 auto;
+  color: var(--kds-text-3);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ticket__ratio b {
+  color: var(--neutral-0);
+  font-weight: 700;
+}
+
+.ticket__serve {
+  display: inline-flex;
+  margin-left: auto;
+  flex: 0 0 auto;
+  align-items: center;
   justify-content: center;
-  background: var(--neutral-950);
-  padding: var(--space-6);
-}
-
-.kds-login__card {
-  width: 100%;
-  max-width: 420px;
-  background: var(--color-card);
-  border-radius: var(--radius-xl);
-  padding: var(--space-8);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  box-shadow: var(--shadow-lg);
-}
-
-.kds-login__title {
-  margin: 0;
-  font-size: var(--text-2xl);
-  font-family: var(--font-display);
-}
-
-.kds-login__hint {
-  margin: 0;
-  color: var(--color-text-secondary);
-}
-
-.kds-login__alert {
-  background: var(--color-danger-bg);
-  color: var(--color-danger);
-  border-radius: var(--radius-sm);
-  padding: var(--space-3);
-  font-weight: var(--weight-semibold);
-}
-
-.kds-login__field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  font-weight: var(--weight-semibold);
-}
-
-.kds-login__field input {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-3) var(--space-4);
-  font-size: var(--text-md);
-}
-
-/* ── PIN повара: цифры крупные, палец попадает без прицела ─────────────── */
-.kds-pin__dots {
-  display: flex;
-  justify-content: center;
-  gap: var(--space-4);
-  padding: var(--space-2) 0;
-}
-
-.kds-pin__dot {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: 2px solid var(--color-border);
+  gap: 7px;
+  min-width: 118px;
+  height: 42px;
+  padding: 0 14px;
+  border: 1px dashed var(--kds-line-2);
+  border-radius: 8px;
   background: transparent;
-  transition: background 120ms ease, border-color 120ms ease;
+  color: var(--kds-text-3);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: default;
+  transition-property: background-color, border-color, color, transform;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
 }
 
-.kds-pin__dot.is-filled {
-  background: var(--color-text-primary, #111);
-  border-color: var(--color-text-primary, #111);
+.ticket__serve:not(:disabled) {
+  border-style: solid;
+  border-color: var(--kds-accent);
+  background: var(--kds-accent);
+  color: var(--kds-ink);
+  font-weight: 700;
+  cursor: pointer;
 }
 
-.kds-keypad {
+.ticket__serve:not(:disabled):hover {
+  border-color: var(--teal-400);
+  background: var(--teal-400);
+}
+
+.ticket__serve:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+/* ── Состояния доски ───────────────────────────────────────────────────── */
+
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: min(100%, 470px);
+  margin: 7vh auto 0;
+}
+
+.state__title {
+  margin: 0;
+  color: var(--neutral-0);
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+  text-wrap: balance;
+}
+
+.state__text {
+  max-width: 44ch;
+  margin: 0;
+  color: var(--kds-text-2);
+  font-size: 14.5px;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.state__sync {
+  margin: 4px 0 0;
+  color: var(--neutral-500);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.state__sync b {
+  color: var(--kds-text-2);
+  font-weight: 500;
+}
+
+.state .btn {
+  margin-top: 4px;
+}
+
+/* Пустая очередь: текст сверху, под ним — места под будущие чеки */
+.state--empty {
+  display: flex;
+  flex-direction: column;
+  justify-self: stretch;
+  width: 100%;
+  max-width: none;
+  min-height: min(560px, 62vh);
+  margin-top: 2vh;
+}
+
+.state__intro {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: 470px;
+}
+
+.state__slots {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  min-height: 160px;
+  margin-top: 24px;
+}
+
+.state__slot {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  max-height: 300px;
+  padding: 18px 18px;
+  border: 1px dashed rgba(255, 255, 255, 0.11);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.012);
+}
+
+.state__slot i {
+  display: block;
+  height: 7px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.state__slot i:nth-child(1) {
+  width: 34%;
+  height: 20px;
+}
+
+.state__slot i:nth-child(2) {
+  width: 68%;
+}
+
+.state__slot i:nth-child(3) {
+  width: 52%;
+}
+
+/* Скелет повторяет силуэт чека — интерфейс не прыгает при загрузке */
+.sk-ticket {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 128px;
+  overflow: hidden;
+  padding: 14px 14px 14px 18px;
+  border: 1px solid var(--kds-line);
+  border-radius: 13px;
+  background: var(--kds-surface);
+}
+
+.sk {
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0.035) 30%,
+    rgba(255, 255, 255, 0.075) 50%,
+    rgba(255, 255, 255, 0.035) 70%
+  );
+  background-size: 220% 100%;
+  animation: sk-shimmer 1.5s linear infinite;
+}
+
+.sk--stub {
+  width: 46%;
+  height: 30px;
+  border-radius: 6px;
+}
+
+.sk--body {
+  flex: 1;
+  border-radius: 6px;
+}
+
+@keyframes sk-shimmer {
+  from {
+    background-position: 180% 0;
+  }
+  to {
+    background-position: -80% 0;
+  }
+}
+
+.board__loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  grid-column: 1 / -1;
+  margin: 2px 0 0;
+  color: var(--kds-text-3);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+/* ── Тост ──────────────────────────────────────────────────────────────── */
+
+.toast {
+  position: fixed;
+  bottom: 22px;
+  left: 96px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px 12px 14px;
+  border-radius: 10px;
+  background: var(--kds-raised);
+  box-shadow: 0 18px 40px -16px rgba(0, 0, 0, 0.8);
+  color: var(--neutral-0);
+  font-size: 14px;
+  font-weight: 600;
+  animation: toast-in 240ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.toast__rail {
+  width: 3px;
+  height: 18px;
+  border-radius: 2px;
+  background: var(--kds-accent);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Экраны входа ──────────────────────────────────────────────────────── */
+
+.gate {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 500px);
+  height: 100dvh;
+  background: var(--kds-bg);
+  color: var(--kds-text);
+}
+
+.gate__aside {
+  position: relative;
+  display: grid;
+  /* шапка — слоган — нижний блок: слоган живёт по центру свободной полосы,
+     факты прижаты к низу, как подпись страницы */
+  grid-template-rows: auto 1fr auto;
+  gap: 24px;
+  overflow: hidden;
+  padding: 44px 40px 32px;
+  border-right: 1px solid var(--kds-line);
+  background:
+    radial-gradient(760px 520px at 6% -6%, rgba(29, 181, 181, 0.15), transparent 62%),
+    var(--kds-bg);
+}
+
+/* Вертикальные волоски — та же «сетка», что на доске, но крупнее */
+.gate__aside::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 0 1px,
+    transparent 1px 64px
+  );
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.gate__aside > * {
+  position: relative;
+  z-index: 1;
+  width: min(880px, 100%);
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.gate__brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Знак тот же, что в веб-логине: плитка 44×44, белый фон, padding 3px,
+   --radius-sm — иначе на тёмной панели кухни тёмно-синий терминал логотипа
+   сливается с фоном и знак читается как «другой логотип». */
+.gate__brand img {
+  display: block;
+  width: 44px;
+  height: 44px;
+  padding: 3px;
+  border-radius: var(--radius-sm, 10px);
+  background: var(--neutral-0, #fff);
+}
+
+.gate__wordmark {
+  display: flex;
+  flex-direction: column;
+  color: var(--neutral-0);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  line-height: 1.1;
+}
+
+.gate__wordmark small {
+  margin-top: 4px;
+  color: var(--kds-text-3);
+  font-family: var(--font-body);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.gate__pitch {
+  display: flex;
+  align-self: center;
+  flex-direction: column;
+  gap: 18px;
+  padding-bottom: 12px;
+}
+
+.gate__title {
+  max-width: 18ch;
+  margin: 0;
+  color: var(--neutral-0);
+  font-family: var(--font-display);
+  font-size: clamp(36px, 3.9vw, 62px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 0.99;
+  text-wrap: balance;
+}
+
+.gate__tail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.gate__facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  margin: 0;
+  padding: 16px 0 0;
+  border-top: 1px solid var(--kds-line-2);
+  list-style: none;
+  counter-reset: fact;
+}
+
+.gate__facts li {
+  padding-right: 20px;
+  border-right: 1px solid var(--kds-line);
+  color: var(--kds-text-2);
+  font-size: 13px;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.gate__facts li:last-child {
+  padding-right: 0;
+  border-right: 0;
+}
+
+.gate__facts li::before {
+  content: "0" counter(fact);
+  display: block;
+  margin-bottom: 7px;
+  color: var(--teal-400);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  counter-increment: fact;
+}
+
+.gate__foot {
+  color: var(--kds-text-3);
+  font-size: 12px;
+}
+
+.gate__note {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.gate__panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 26px;
+  padding: 44px 40px;
+  background: var(--kds-surface);
+}
+
+.gate__head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gate__panel-title {
+  margin: 0;
+  color: var(--neutral-0);
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+
+.gate__hint {
+  max-width: 38ch;
+  margin: 0;
+  color: var(--kds-text-3);
+  font-size: 13.5px;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+/* ── Форма подключения ─────────────────────────────────────────────────── */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field__label {
+  color: var(--kds-text-3);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.field__input {
+  height: 50px;
+  padding: 0 14px;
+  border: 1px solid var(--kds-line-2);
+  border-radius: 10px;
+  outline: none;
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--neutral-0);
+  font-family: inherit;
+  font-size: 15px;
+  transition-property: border-color, box-shadow, background-color;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+}
+
+/* Телефонный логин: код страны — статичный префикс, поле держит только
+   локальные цифры. Рамка/фокус общие с .field__input, поэтому префикс живёт
+   внутри той же рамки, а не рядом с ней. */
+.field__phone {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 50px;
+  padding: 0 14px;
+  border: 1px solid var(--kds-line-2);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.22);
+  transition-property: border-color, box-shadow, background-color;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+}
+
+.field__phone:focus-within {
+  border-color: var(--kds-accent);
+  background: rgba(0, 0, 0, 0.32);
+  box-shadow: 0 0 0 3px rgba(29, 181, 181, 0.18);
+}
+
+.field__phone-prefix {
+  flex: 0 0 auto;
+  color: var(--neutral-200);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.field__phone .field__input {
+  flex: 1;
+  height: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.field__phone .field__input:focus {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.field__input::placeholder {
+  color: var(--neutral-500);
+}
+
+.field__input:focus {
+  border-color: var(--kds-accent);
+  background: rgba(0, 0, 0, 0.32);
+  box-shadow: 0 0 0 3px rgba(29, 181, 181, 0.18);
+}
+
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 9px;
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--red-100);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* ── PIN ───────────────────────────────────────────────────────────────── */
+
+.pin {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Настоящее поле ввода скрыто визуально, но остаётся в фокусе и принимает
+   и физическую, и экранную клавиатуру. */
+.pin__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.pin__slots {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  cursor: text;
+}
+
+.pin__slot {
+  position: relative;
+  height: 74px;
+  border: 1px solid var(--kds-line-2);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.28);
+  transition-property: border-color, background-color;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+}
+
+.pin__slot::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: var(--teal-400);
+  opacity: 0;
+  transform: scale(0.5);
+  transition-property: opacity, transform;
+  transition-duration: 140ms;
+  transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.pin__slot.is-filled {
+  border-color: rgba(29, 181, 181, 0.55);
+  background: rgba(29, 181, 181, 0.08);
+}
+
+.pin__slot.is-filled::after {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.pin.is-error .pin__slot {
+  border-color: rgba(239, 68, 68, 0.6);
+  animation: pin-shake 320ms ease-in-out;
+}
+
+@keyframes pin-shake {
+  0%,
+  100% {
+    transform: none;
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+}
+
+.pin__msg {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 18px;
+  margin: 0;
+  color: var(--kds-text-3);
+  font-size: 12.5px;
+}
+
+.pin.is-error .pin__msg {
+  color: var(--kds-urgent);
+  font-weight: 600;
+}
+
+.keypad {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-3);
+  gap: 10px;
+  margin-top: 4px;
 }
 
-.kds-keypad__key {
-  min-height: 72px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border);
-  background: var(--color-subtle);
-  font-size: var(--text-2xl);
-  font-weight: var(--weight-bold);
+.keypad__key {
+  height: clamp(58px, 8.4vh, 76px);
+  border: 1px solid var(--kds-line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--neutral-0);
+  font-family: var(--font-mono);
+  font-size: 21px;
+  font-weight: 700;
   cursor: pointer;
-  touch-action: manipulation;
-  user-select: none;
+  transition-property: background-color, border-color, transform;
+  transition-duration: 120ms;
+  transition-timing-function: ease-out;
 }
 
-.kds-keypad__key:active:not(:disabled) {
+.keypad__key:hover:not(:disabled) {
+  border-color: var(--kds-line-2);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.keypad__key:active:not(:disabled) {
+  background: rgba(29, 181, 181, 0.16);
   transform: scale(0.97);
 }
 
-.kds-keypad__key:disabled {
+.keypad__key:disabled {
   opacity: 0.5;
   cursor: default;
 }
 
-.kds-keypad__key--ghost {
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  color: var(--color-text-secondary);
+.keypad__key--ghost {
+  background: transparent;
+  color: var(--kds-text-3);
 }
 
-.kds-branches {
-  padding: var(--space-6);
+.keypad__gap {
+  display: block;
 }
 
-.kds-branches__list {
-  display: flex;
-  gap: var(--space-3);
-  flex-wrap: wrap;
+/* ── Кнопки ────────────────────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 20px;
+  border: 1px solid var(--kds-line-2);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--neutral-200);
+  font-family: inherit;
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition-property: background-color, border-color, color, transform;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
 }
 
-@media (max-width: 768px) {
-  .kds-board {
-    grid-template-columns: 1fr;
-    padding: var(--space-4);
+.btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--neutral-0);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.btn--primary {
+  border-color: var(--kds-accent);
+  background: var(--kds-accent);
+  /* Белый текст по просьбе владельца: на кухонном мониторе тёмная подпись
+     на teal читалась как «неактивная» кнопка. */
+  color: var(--neutral-0);
+  font-weight: 700;
+}
+
+.btn--primary:hover:not(:disabled) {
+  border-color: var(--teal-400);
+  background: var(--teal-400);
+  color: var(--neutral-0);
+}
+
+.btn--block {
+  width: 100%;
+}
+
+.linkbtn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--kds-text-3);
+  font-family: inherit;
+  font-size: 12.5px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  transition-property: color;
+  transition-duration: 150ms;
+}
+
+.linkbtn:hover {
+  color: var(--neutral-0);
+}
+
+/* ── Адаптив ───────────────────────────────────────────────────────────── */
+
+/* На средних мониторах два чека в ряд читаются лучше, чем один растянутый */
+@media (max-width: 1400px) {
+  .board {
+    grid-template-columns: repeat(auto-fill, minmax(430px, 1fr));
+  }
+}
+
+@media (max-width: 1180px) {
+  .gate {
+    grid-template-columns: minmax(0, 1fr) 440px;
   }
 
-  .kds-topbar {
+  .gate__aside {
+    padding: 36px 32px 30px;
+  }
+
+  .gate__panel {
+    padding: 36px 32px;
+  }
+}
+
+/* Планшет в портрете: вход становится одноколоночным */
+@media (max-width: 980px) {
+  .gate {
+    grid-template-columns: 1fr;
+    /* Верх — компактная шапка, остаток высоты забирает панель входа:
+       иначе auto-строки растягиваются и в шапке появляется пустая полоса */
+    grid-template-rows: auto minmax(0, 1fr);
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .gate__aside {
+    gap: 18px;
+    padding: 26px 24px;
+    border-right: 0;
+    border-bottom: 1px solid var(--kds-line);
+  }
+
+  .gate__pitch {
+    gap: 14px;
+  }
+
+  .gate__title {
+    font-size: 27px;
+  }
+
+  .gate__facts {
+    display: none;
+  }
+
+  .gate__panel {
+    padding: 28px 24px 36px;
+  }
+}
+
+/* Кухонный монитор в портрете / планшет: стойка уезжает наверх */
+@media (max-width: 900px) {
+  .kds {
     flex-direction: column;
-    align-items: flex-start;
+  }
+
+  .rail {
+    flex: 0 0 auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    height: 64px;
+    padding: 0 14px;
+    border-right: 0;
+    border-bottom: 1px solid var(--kds-line);
+  }
+
+  .rail__mark {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    font-size: 16px;
+  }
+
+  .rail__conn {
+    flex-direction: row;
+    gap: 6px;
+  }
+
+  .rail__conn-text {
+    display: none;
+  }
+
+  .rail__tools {
+    flex-direction: row;
+    gap: 2px;
+    margin-top: 0;
+    margin-left: auto;
+  }
+
+  .rail__btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .head {
+    flex-wrap: wrap;
+    gap: 12px;
+    height: auto;
+    padding: 14px 16px;
+  }
+
+  .head__id {
+    flex: 1 1 auto;
+  }
+
+  .head__clock {
+    margin-left: auto;
+  }
+
+  .clock b {
+    font-size: 22px;
+  }
+
+  .head__tabs {
+    order: 3;
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .tab {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .head__alarm {
+    order: 4;
+  }
+
+  .board {
+    grid-template-columns: 1fr;
+    padding: 14px;
+  }
+
+  .ticket__head {
+    padding: 12px 12px 8px 16px;
+  }
+
+  .ticket__table {
+    font-size: 28px;
+  }
+
+  .ticket__type {
+    font-size: 20px;
+  }
+
+  .ticket__body {
+    padding: 0 12px 8px 16px;
+  }
+
+  .ticket__foot {
+    padding: 8px 12px 10px 16px;
+  }
+
+  .sk-ticket {
+    min-height: 128px;
+  }
+
+  .toast {
+    right: 14px;
+    bottom: 14px;
+    left: 14px;
+  }
+}
+
+/* Узкий экран: действия занимают всю ширину чека */
+@media (max-width: 620px) {
+  .ticket__ticks {
+    display: none;
+  }
+
+  /* На телефоне счётчик встаёт над кнопкой: иначе «0/2» и кнопка
+     делят одну строку и оба выглядят обрезанными */
+  .ticket__foot {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .ticket__ratio {
+    flex: 1 0 100%;
+    font-size: 12px;
+  }
+
+  .ticket__serve {
+    flex: 1 0 100%;
+    width: 100%;
+    min-width: 0;
+    height: 46px;
+    margin-left: 0;
+  }
+
+  .dish {
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+
+  .dish__act {
+    min-width: 96px;
+    height: 40px;
+    padding: 0 10px;
+  }
+
+  .dish__done span {
+    display: none;
+  }
+
+  .state {
+    margin-top: 4vh;
+  }
+
+  .state__slots {
+    grid-template-columns: 1fr;
+    margin-top: 18px;
+  }
+
+  .state__slot {
+    min-height: 92px;
+  }
+
+  .state__title {
+    font-size: 25px;
+  }
+}
+
+/* Уважаем системную настройку: у повара может быть чувствительность к движению */
+@media (prefers-reduced-motion: reduce) {
+  .ticket,
+  .toast,
+  .sk,
+  .ticket__dot,
+  .head__alarm,
+  .pin.is-error .pin__slot,
+  .icon-spin {
+    animation: none;
+  }
+
+  .dish,
+  .dish__act,
+  .ticket__serve,
+  .rail__btn,
+  .tab,
+  .btn,
+  .keypad__key,
+  .pin__slot,
+  .pin__slot::after,
+  .field__input {
+    transition: none;
   }
 }

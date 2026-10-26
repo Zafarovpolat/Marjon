@@ -51,7 +51,7 @@ export const nomenclatureConfigs = {
 };
 
 // Значения по умолчанию для формы блюда (создание нового товара).
-export const emptyDishForm = { name: "", sort: "1", type: "Блюда", unitId: "", unit: "", cost: "", price: "", menu: "", subcategory: "", printer: "", recipe: "Рецепт (0 шт)", stock: "-", active: true, auto: false, set: false, category: "", chef: "" };
+export const emptyDishForm = { name: "", sort: "1", type: "Блюда", unitId: "", unit: "", cost: "", price: "", menu: "", subcategory: "", printer: "", recipe: "Рецепт (0 шт)", stock: "-", active: true, auto: false, set: false, category: "", chef: "", portionStep: "" };
 
 export const fieldLabels = {
   name: "Название",

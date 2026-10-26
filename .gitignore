@@ -27,6 +27,7 @@ env/
 # Локальные бэкапы dev-базы (dev.db.bak, dev.db.pre-sync.bak и т.п.)
 *.db.bak
 *.db.*.bak
+*.db.bak-*
 
 # Logs
 *.log

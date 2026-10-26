@@ -26,7 +26,8 @@ from app.modules.pos.schemas import (
     OrderCreate, OrderItemCreate, OrderItemWaiterUpdate, OrderStatusUpdate,
     OrderUpdate, TerminalCreate, ShiftOpen, ShiftClose,
 )
-from app.shared.exceptions import ConflictError, NotFoundError, ValidationError
+from app.modules.rbac.models import Role, UserRole
+from app.shared.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from app.shared.tenant_scope import require_company_resource
 
 logger = logging.getLogger(__name__)
@@ -99,6 +100,32 @@ def _stamp_item_cancellation(item: OrderItem, actor_id: UUID | None) -> None:
         item.cancelled_at = _utcnow()
     if item.cancelled_by_id is None and actor_id is not None:
         item.cancelled_by_id = actor_id
+
+
+# DEBT-ROLE-01: должность, которой закрывать счёт «в долг» запрещено всегда.
+# Официант не распоряжается деньгами заведения: заказ, закрытый без полной
+# оплаты, — это выданный кредит, и оформлять его может только кассир.
+DEBT_FORBIDDEN_ROLE_SLUGS: frozenset[str] = frozenset({"waiter"})
+
+
+async def _role_slugs_of(db: AsyncSession, user: User | None) -> set[str]:
+    """Слаги ролей сотрудника (RBAC). Пустое множество — роль не определена."""
+    if user is None or getattr(user, "id", None) is None:
+        return set()
+    cached = getattr(user, "_role_slugs_cache", None)
+    if cached is not None:
+        return set(cached)
+    rows = await db.execute(
+        select(Role.slug)
+        .join(UserRole, UserRole.role_id == Role.id)
+        .where(UserRole.user_id == user.id)
+    )
+    slugs = {str(s).lower() for s in rows.scalars().all() if s}
+    try:
+        user._role_slugs_cache = slugs
+    except Exception:
+        pass
+    return slugs
 
 
 async def _safe_verify(secret: str | None, hashed: str | None) -> bool:
@@ -350,7 +377,7 @@ class OrderService:
 
     async def update_status(
         self, company_id: UUID, order_id: UUID, data: OrderStatusUpdate,
-        actor_id: UUID | None = None,
+        actor_id: UUID | None = None, user: User | None = None,
     ) -> Order:
         order = await self.get(company_id, order_id)
         current = order.status
@@ -361,6 +388,11 @@ class OrderService:
                 f"Невозможно перевести заказ из '{current}' в '{target}'. "
                 f"Допустимые переходы: {VALID_TRANSITIONS.get(current, set()) or 'нет'}"
             )
+
+        if target == "completed":
+            # DEBT-ROLE-01: закрытие БЕЗ полной оплаты = выдача в долг. Официанту
+            # это запрещено всегда (в вебе такого переключателя нет и не будет).
+            await self._ensure_debt_allowed(company_id, order, user, actor_id)
 
         order.status = target
         if target == "cancelled":
@@ -402,6 +434,78 @@ class OrderService:
         return updated_order
 
     # ── Cancel ────────────────────────────────────────────────────────────────
+
+    async def _ensure_debt_allowed(
+        self, company_id: UUID, order: Order,
+        user: User | None = None, actor_id: UUID | None = None,
+    ) -> None:
+        """DEBT-ROLE-01: закрывать счёт без полной оплаты («в долг») официанту нельзя.
+
+        Проверяем только фактический недобор: если по заказу уже есть completed-
+        платежи на всю сумму, это обычное закрытие, а не кредит. Заказ, который
+        вернули в работу, тоже не долг — деньги по нему уже получены.
+        """
+        from app.modules.payments.models import Payment
+
+        paid = await self.db.scalar(
+            select(func.coalesce(func.sum(Payment.amount), 0)).where(
+                Payment.company_id == company_id,
+                Payment.order_id == order.id,
+                Payment.status == "completed",
+            )
+        )
+        paid = Decimal(str(paid or 0))
+        if paid >= Decimal(str(order.total_amount or 0)):
+            return
+        if order.reopened_at is not None:
+            return
+        slugs = await _role_slugs_of(self.db, user)
+        if slugs & DEBT_FORBIDDEN_ROLE_SLUGS:
+            raise ForbiddenError(
+                "Официант не может закрыть заказ в долг — вызовите кассира"
+            )
+
+    async def reopen(
+        self, company_id: UUID, order_id: UUID,
+        reason: str | None = None, user: User | None = None,
+    ) -> Order:
+        """REOPEN-01: вернуть ЗАКРЫТЫЙ заказ в работу.
+
+        Сценарий кассы: гость оплатил заказ, но одно блюдо ему не отдали —
+        он возвращается и просит деньги назад. Кассир возвращает заказ в работу,
+        отменяет позицию (с обязательной причиной), итог уменьшается, сдача
+        выдаётся, заказ закрывается снова. Повторное закрытие разрешено, потому
+        что у заказа проставлен reopened_at: PaymentService.process помечает
+        прежние completed-платежи как refunded и пишет оплату по новому итогу.
+        """
+        order = await self.get(company_id, order_id)
+        if order.status != "completed":
+            raise ValidationError(
+                "Вернуть в работу можно только закрытый заказ"
+            )
+        order.status = "accepted"
+        order.reopened_at = _utcnow()
+        order.reopened_by_id = user.id if user else None
+        if reason:
+            order.reopen_comment = reason
+        # Чек по старому итогу больше не актуален — стол снова «в работе».
+        order.receipt_printed_at = None
+        await self.repo.save(order)
+        try:
+            await AuditService(self.db).log(
+                company_id, user.id if user else None, "order.reopen", "order",
+                entity_id=order_id, new_data={"reason": reason} if reason else None,
+            )
+        except Exception:
+            pass
+        try:
+            await kitchen_manager.broadcast(
+                company_id, order.branch_id, "order_updated",
+                {"order_id": str(order_id), "status": "accepted"},
+            )
+        except Exception:
+            pass
+        return await self.get(company_id, order_id)
 
     async def cancel(
         self, company_id: UUID, order_id: UUID,
@@ -580,6 +684,10 @@ class OrderService:
             pass
         order.subtotal -= item.total
         item.status = "cancelled"
+        # CANCEL-COMMENT-01: причина отмены хранится на самой позиции и печатается
+        # в чеке — она нужна и гостю, и разбору смены.
+        if reason:
+            item.cancel_reason = reason
         # Phase 1A: правдивый штамп «кто/когда отменил позицию».
         _stamp_item_cancellation(item, user.id if user else None)
         item.total = Decimal("0")
@@ -594,6 +702,77 @@ class OrderService:
             await AuditService(self.db).log(
                 company_id, user.id if user else None, "order.remove_item", "order_item",
                 entity_id=item_id, new_data={"reason": reason} if reason else None,
+            )
+        except Exception:
+            pass
+        return await self.get(company_id, order_id)
+
+    # ── Change quantity of an existing item ───────────────────────────────────
+
+    async def set_item_quantity(
+        self, company_id: UUID, order_id: UUID, item_id: UUID,
+        quantity: Decimal, user: User | None = None,
+    ) -> Order:
+        """Плюс/минус на УЖЕ внесённой позиции (касса правит количество).
+
+        Почему это безопасно до оплаты: сток списывается не здесь, а в
+        `/payments` (deduct_for_order), а кухонный чек печатается только в
+        `create()` — дозаказ и правка количества его не печатают. Дневной
+        лимит двигаем на ДЕЛЬТУ: старая порция уже сидит в sold_count.
+        """
+        order = await self.get(company_id, order_id)
+        if order.status in ("completed", "cancelled"):
+            raise ValidationError("Нельзя изменить позицию завершённого или отменённого заказа")
+
+        item = await self._get_order_item(order, item_id)
+        new_qty = self._as_decimal(quantity)
+        old_qty = self._as_decimal(item.quantity)
+        if new_qty <= 0:
+            raise ValidationError("Количество должно быть больше нуля")
+        delta = new_qty - old_qty
+        if delta == 0:
+            return await self.get(company_id, order_id)
+
+        # Товар ищем без фильтра is_active: блюдо могло само уйти в стоп по
+        # дневному лимиту, и честный ответ даёт _ensure_sale_allowed
+        # («Блюдо в стоп-листе»), а не «Product not found».
+        product = (await self.db.execute(
+            select(Product)
+            .where(Product.id == item.product_id, Product.company_id == company_id)
+            .with_for_update()
+        )).scalar_one_or_none()
+        if product is None:
+            raise NotFoundError("Product not found")
+        if delta > 0:
+            self._ensure_sale_allowed(product, delta)
+
+        old_total = item.total
+        modifiers_delta = _modifiers_delta(item.modifiers)
+        item_discount = _quantize(item.discount) if item.discount else Decimal("0")
+        gross = _quantize((item.price + modifiers_delta) * new_qty)
+        item.quantity = new_qty
+        item.total = max(gross - item_discount, Decimal("0"))
+        order.subtotal += item.total - old_total
+
+        try:
+            if delta > 0:
+                self._apply_sale_to_limit(product, delta)
+            else:
+                await self._restore_to_limit(company_id, item.product_id, -delta)
+        except Exception:
+            pass
+
+        self._recalculate_totals(
+            order, None,
+            await self._effective_service_rate(company_id, order, None),
+            service_base=await self._service_base_q(order.id),
+            tax_rate=await self._vat_rate(order),
+        )
+        await self.db.commit()
+        try:
+            await AuditService(self.db).log(
+                company_id, user.id if user else None, "order.set_item_quantity", "order_item",
+                entity_id=item_id, new_data={"quantity": str(new_qty), "was": str(old_qty)},
             )
         except Exception:
             pass

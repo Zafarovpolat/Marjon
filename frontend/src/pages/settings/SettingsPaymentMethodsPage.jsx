@@ -22,14 +22,19 @@ export const PAYMENT_TYPE_LABELS = Object.freeze({
   uzum: "Uzum",
   loyalty: "Лояльность",
   mixed: "Смешанный",
+  // Свои способы оплаты (Uzum, Yandex, перевод на карту и т.п.) — без интеграции,
+  // нужны только чтобы кассир выбрал способ и он был виден в отчётах.
+  other: "Другое",
 });
 
 // Display map keeps ALL known codes so any legacy row (payme/click/…) still
-// renders a human label in the table. The create/edit form, however, offers
-// only the two business-approved options.
+// renders a human label in the table. The create/edit form offers the two
+// canonical options plus "Другое" — для способов, которые владелец вводит
+// руками (Uzum, Yandex): они появятся кнопками на кассе и в отчётах.
 export const PAYMENT_TYPE_OPTIONS = Object.freeze([
   { value: "cash", label: "Наличные" },
   { value: "card", label: "Карта" },
+  { value: "other", label: "Другое (Uzum, Yandex…)" },
 ]);
 
 // Unknown / legacy values (rows created before the canonical enum) must render
@@ -61,6 +66,10 @@ export function formToPayload(form) {
   if (!/^\d+$/.test(sortInput)) return null;
   const name = String(form.name ?? "").trim();
   if (!name) return null;
+  // Длина ограничена колонкой payments.method (String(30)): именно название
+  // способа уходит в платёж и показывается в отчётах, поэтому обрезать его
+  // молча нельзя — просим укоротить.
+  if (name.length > 30) return null;
   return {
     name,
     sort: Number(sortInput),
@@ -185,7 +194,7 @@ function SettingsPaymentMethodsPage() {
     if (!mutationLocks.acquire("save")) return;
     const payload = formToPayload(form);
     if (!payload) {
-      setError("Проверьте поля: «Сорт» — целое число, «Название» — обязательно.");
+      setError("Проверьте поля: «Сорт» — целое число, «Название» — обязательно и не длиннее 30 символов.");
       mutationLocks.release("save");
       return;
     }
@@ -340,6 +349,7 @@ function SettingsPaymentMethodsPage() {
                     <span>Название</span>
                     <input
                       autoFocus
+                      maxLength={30}
                       value={form.name}
                       onChange={(event) => setForm((cur) => ({ ...cur, name: event.target.value }))}
                     />
@@ -357,6 +367,12 @@ function SettingsPaymentMethodsPage() {
                   />
                   {legacyType ? (
                     <p className="pm-legacy-note">Текущий тип: {paymentTypeLabel(legacyType)}</p>
+                  ) : null}
+                  {form.type === "other" ? (
+                    <p className="pm-legacy-note">
+                      Способ появится отдельной кнопкой на кассе. Название — до 30 символов
+                      (его увидит кассир и оно попадёт в отчёты по способам оплаты).
+                    </p>
                   ) : null}
                 </div>
                 <div className="settings-toggle-field settings-form__wide">

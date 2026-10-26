@@ -151,6 +151,8 @@ class ProductCreate(BaseSchema):
     barcode: str | None = None
     sku: str | None = None
     sort_order: int = Field(default=1, ge=1, strict=True)
+    # V46: шаг порции для блюд с дробными порциями (None = целые, 0.1/0.25/0.5).
+    portion_step: Decimal | None = Field(default=None, ge=Decimal("0.001"), le=Decimal("1"))
     ingredients: list[ProductIngredientIn] = Field(default_factory=list)
 
 
@@ -171,6 +173,8 @@ class ProductUpdate(BaseSchema):
     is_set: bool | None = None
     allow_in_sets: bool | None = None
     sort_order: int | None = Field(default=None, ge=1, strict=True)
+    # V46
+    portion_step: Decimal | None = Field(default=None, ge=Decimal("0.001"), le=Decimal("1"))
     # None = leave composition untouched; [] = clear it; a list = replace it.
     ingredients: list[ProductIngredientIn] | None = None
 
@@ -218,6 +222,8 @@ class ProductResponse(BaseResponseSchema):
     daily_limit: Decimal | None = None
     sold_count: Decimal = Decimal("0")
     sort_order: int
+    # V46: шаг порции (None = целые).
+    portion_step: Decimal | None = None
     # BE-16 aggregates — real, computed from actual data (see
     # ProductService._attach_aggregates), never fabricated:
     category_name: str | None = None

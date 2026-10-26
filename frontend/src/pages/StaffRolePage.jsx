@@ -5,6 +5,7 @@ import { isAbortError, useLatestRequest, useMutationLocks } from "../hooks/useAs
 import {
   cashierSwitchFields,
   emptyForm,
+  kitchenSwitchFields,
   mapStaffUser,
   monoblockSwitchFields,
   roleMap,
@@ -37,13 +38,24 @@ function StaffRolePage({ role = "all" }) {
   // family (7 columns, no access column, Cashier-parity drawer matrix, no HR).
   const isManagerView = routeRole === "manager";
   const isWarehouseView = routeRole === "warehouse";
-  const isProductView = isCashierView || isWaiterView || isMonoblockView || isManagerView || isWarehouseView;
+  // KITCHEN-01: повар переехал на тот же продуктовый шаблон, что кассир и
+  // официант. Раньше /users/kitchen рендерил легаси-экран с блоком фильтров
+  // (.staff-filters), центральным диалогом и заголовком без вкладок статуса —
+  // из-за этого раздел выглядел чужим на фоне остальных страниц сотрудников.
+  // Кухня — такая же роль зала, как кассир: шапка с вкладками
+  // [Активные | Архивированные] + «Добавить», боковой drawer, тот же стол.
+  const isKitchenView = routeRole === "kitchen";
+  const isProductView = isCashierView || isWaiterView || isMonoblockView || isManagerView || isWarehouseView || isKitchenView;
   // Сеть → филиал: обычный сотрудник (не моноблок) входит в Marjon Staff по
   // своей учётке, а не через филиал-терминал десктопа — приложение резолвит
   // его филиал из User.branch_id (mobile/lib/src/session/session.dart), так
   // что без выбора здесь сотрудник не сможет войти вообще. Моноблок с
   // branch_id не работает (привязан к company целиком), поэтому не входит сюда.
-  const needsBranch = isCashierView || isWaiterView || isManagerView || isWarehouseView;
+  // Повару филиал нужен так же, как кассиру: кухонный экран ищет PIN только
+  // внутри филиала терминала (login_by_pin с branch_id), а KDS-сессия несёт
+  // филиал сотрудника. Без User.branch_id повар «сетевой» — виден на кухне
+  // любого филиала сети, что для смены поваров неверно.
+  const needsBranch = isCashierView || isWaiterView || isManagerView || isWarehouseView || isKitchenView;
   const pageTitle =
     routeRole === "all" ? "Список сотрудников" : `Список сотрудников: ${roleMap[routeRole].title}`;
 
@@ -352,7 +364,9 @@ function StaffRolePage({ role = "all" }) {
             ? "manager"
             : isWarehouseView
               ? "warehouse"
-              : "cashier";
+              : isKitchenView
+                ? "kitchen"
+                : "cashier";
       const productGenitive = isWaiterView
         ? "официанта"
         : isMonoblockView
@@ -361,7 +375,9 @@ function StaffRolePage({ role = "all" }) {
             ? "менеджера"
             : isWarehouseView
               ? "завсклада"
-              : "кассира";
+              : isKitchenView
+                ? "повара"
+                : "кассира";
       const productName = form.fullName.trim();
       if (!productName || !phone) {
         // FIX-03: bind to the missing field so the message renders under
@@ -394,6 +410,15 @@ function StaffRolePage({ role = "all" }) {
         mutationLocks.release("staff-save");
         return;
       }
+      // KITCHEN-01: повару PIN обязателен — это единственный способ войти на
+      // кухонный экран. Раньше поле можно было оставить пустым, карточка
+      // сохранялась, и смена обнаруживала проблему уже у плиты.
+      if (isKitchenView && !editingId && !/^\d{4}$/.test(form.pin)) {
+        setSaveErrorField("pin");
+        setSaveError("PIN — 4 цифры: без него повар не войдёт на кухню.");
+        mutationLocks.release("staff-save");
+        return;
+      }
       setSaveError("");
       setSaveErrorField("");
       setSaving(true);
@@ -412,9 +437,11 @@ function StaffRolePage({ role = "all" }) {
           ? waiterSwitchFields
           : isMonoblockView
             ? monoblockSwitchFields
-            : isManagerView || isWarehouseView
-              ? []
-              : cashierSwitchFields;
+            : isKitchenView
+              ? kitchenSwitchFields
+              : isManagerView || isWarehouseView
+                ? []
+                : cashierSwitchFields;
         // PERMS-ONE-SOURCE-01: один сборщик на POST и PATCH. Ключи —
         // snake_case (staffPermissionKeys) + матрица modules; именно этот
         // формат читают гейты десктопа и API. Раньше create отправлял
@@ -698,6 +725,7 @@ function StaffRolePage({ role = "all" }) {
           isMonoblock={isMonoblockView}
           isManager={isManagerView}
           isWarehouse={isWarehouseView}
+          isKitchen={isKitchenView}
           printers={printers}
         />
       </section>
@@ -725,6 +753,7 @@ function StaffRolePage({ role = "all" }) {
           printers={printers}
           isManager={isManagerView}
           isWarehouse={isWarehouseView}
+          isKitchen={isKitchenView}
           closing={modalClosing}
           saveError={saveError}
           saveErrorField={saveErrorField}

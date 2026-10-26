@@ -91,6 +91,12 @@ class Product(TimeStampedModel):
     # только топ-апы с seq строго больше (пусто после сброса = "0", старые
     # строки при этом НЕ удаляются из append-only истории).
     history_reset_seq: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # PORTION-STEP-01: шаг порции для кассы. NULL = блюдо продаётся целыми
+    # порциями (±1). Число (0.1 / 0.25 / 0.5) = дробная порция: кнопки ± в
+    # карточке блюда двигают количество на этот шаг. Настраивается у отдельных
+    # блюд в веб-админке — «весовые» позиции (соус, гарнир на развес, напиток
+    # в литрах) продаются долями, остальные — только целиком.
+    portion_step: Mapped[Decimal | None] = mapped_column(Numeric(5, 3), nullable=True)
 
     category: Mapped[Category | None] = relationship(back_populates="products", foreign_keys=[category_id])
     modifier_groups: Mapped[list[ModifierGroup]] = relationship(back_populates="product", cascade="all, delete-orphan")

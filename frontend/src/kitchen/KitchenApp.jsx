@@ -1,5 +1,10 @@
-// Отдельный KDS-экран поваров: коротко и ясно — заказы, блюда, кнопки «Готово».
+// Отдельный KDS-экран поваров: заказы, блюда, «Готово» в одно касание.
 // Не входит в админку (/), десктоп и мобилу: свой entry kitchen.html -> src/kitchen/main.jsx.
+//
+// Дизайн: тёмная доска (navy) с «чеками» заказов. Тёмный фон выбран не ради
+// моды — экран висит на кухне весь день, а светлая доска слепит и теряет
+// контраст под бликами. Возраст заказа читается по цвету каймы и таймера:
+// teal → янтарь (10 мин) → красный (20 мин).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   forgetKdsDevice,
@@ -15,6 +20,27 @@ import {
   kdsSetOrderReady,
   kdsWsUrl,
 } from "./api";
+import logo from "../assets/brand/marjon-logo.svg";
+import {
+  formatLocalPhone,
+  getLocalPhoneDigits,
+  isLocalPhoneComplete,
+  toFullPhone,
+} from "../utils/phoneMask";
+import {
+  IconAlert,
+  IconArrow,
+  IconBackspace,
+  IconCheck,
+  IconExpand,
+  IconLogout,
+  IconRefresh,
+  IconSound,
+  IconSoundOff,
+  IconSpinner,
+  IconWifi,
+  IconWifiOff,
+} from "./icons.jsx";
 
 // Бэкенд отдаёт наивный UTC без таймзоны — считаем его UTC, иначе таймеры врут
 function parseTs(ts) {
@@ -61,79 +87,297 @@ function itemState(item) {
   return "pending";
 }
 
-function KdsOrderCard({ order, now, onItemStatus, onOrderReady, busyId }) {
+function isAllReady(order) {
   const items = order.items ?? [];
-  const readyCount = items.filter((i) => itemState(i) === "ready").length;
-  const allReady = items.length > 0 && readyCount === items.length;
-  const waitingMin = Math.floor(Math.max(0, now - parseTs(order.created_at)) / 60000);
-  const tone = waitingMin > 20 ? "kds-card--urgent" : waitingMin > 10 ? "kds-card--waiting" : "";
-  const orderNo = order.order_number || order.public_id || String(order.id).slice(0, 8);
+  return items.length > 0 && items.every((i) => itemState(i) === "ready");
+}
+
+function orderNumber(order) {
+  return order.order_number || order.public_id || String(order.id).slice(0, 8);
+}
+
+// Тип заказа приходит кодом — на кухне читаем по-человечески.
+const ORDER_TYPES = {
+  dine_in: "В зале",
+  takeaway: "С собой",
+  delivery: "Доставка",
+  qr: "QR-меню",
+};
+
+function typeLabel(order) {
+  const raw = String(order?.order_type || "");
+  return ORDER_TYPES[raw] || raw;
+}
+
+// Количество бывает дробным (0.5 порции) — хвостовые нули не показываем.
+function formatQty(value) {
+  const n = Number(value ?? 1);
+  if (!Number.isFinite(n)) return "1";
+  return Number.isInteger(n) ? String(n) : String(Number(n.toFixed(3)));
+}
+
+// Русское склонение числительных: 1 заказ, 2 заказа, 5 заказов.
+function plural(n, one, few, many) {
+  const abs = Math.abs(n) % 100;
+  const tail = abs % 10;
+  if (abs > 10 && abs < 20) return many;
+  if (tail > 1 && tail < 5) return few;
+  if (tail === 1) return one;
+  return many;
+}
+
+const DATE_FMT = new Intl.DateTimeFormat("ru-RU", {
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+});
+
+function clockParts(now) {
+  const d = new Date(now);
+  return {
+    hh: String(d.getHours()).padStart(2, "0"),
+    mm: String(d.getMinutes()).padStart(2, "0"),
+    ss: String(d.getSeconds()).padStart(2, "0"),
+    date: DATE_FMT.format(d),
+  };
+}
+
+// ── Позиция заказа ────────────────────────────────────────────────────────
+
+function DishRow({ item, busy, onStatus }) {
+  const st = itemState(item);
+  const modifiers = Array.isArray(item.modifiers)
+    ? item.modifiers
+        .map((m) => (typeof m === "string" ? m : m?.name))
+        .filter(Boolean)
+        .join(" · ")
+    : "";
 
   return (
-    <article className={`kds-card ${tone}`}>
-      <div className="kds-card__head">
-        <div>
-          <h2 className="kds-card__number">#{orderNo}</h2>
-          <div className="kds-card__meta">
-            {order.table_number ? `Стол ${order.table_number}` : order.hall_name ? order.hall_name : "Зал"}
-            {order.order_type ? ` · ${order.order_type}` : ""}
-          </div>
+    <li className={`dish is-${st}`}>
+      <span className="dish__qty">
+        {formatQty(item.quantity)}
+        <i>×</i>
+      </span>
+
+      <span className="dish__text">
+        <span className="dish__name">{item.name || "Блюдо"}</span>
+        {modifiers ? <span className="dish__mods">{modifiers}</span> : null}
+        {item.note ? <span className="dish__note">{item.note}</span> : null}
+        {item.takeaway ? <span className="dish__tag">с собой</span> : null}
+      </span>
+
+      {st === "ready" ? (
+        <span className="dish__done">
+          <IconCheck size={18} />
+          <span>Готово</span>
+        </span>
+      ) : (
+        <button
+          className={`dish__act ${st === "cooking" ? "is-ready" : ""}`}
+          type="button"
+          disabled={busy}
+          onClick={() => onStatus(item, st === "cooking" ? "ready" : "cooking")}
+        >
+          {busy ? <IconSpinner size={16} /> : st === "cooking" ? <IconCheck size={16} /> : null}
+          {st === "cooking" ? "Готово" : "Готовить"}
+        </button>
+      )}
+    </li>
+  );
+}
+
+// ── Чек заказа ────────────────────────────────────────────────────────────
+//
+// Левая «корешок»-колонка держит стол и таймер: повар смотрит туда, а не
+// вычитывает номер в строке. Правка блюд — в теле чека, отдача заказа —
+// отдельной строкой внизу, чтобы её нельзя было нажать случайно.
+
+function Ticket({ order, now, busyId, onItemStatus, onOrderReady }) {
+  const items = order.items ?? [];
+  const readyCount = items.filter((i) => itemState(i) === "ready").length;
+  const allReady = isAllReady(order);
+  const mins = Math.floor(Math.max(0, now - parseTs(order.created_at)) / 60000);
+  const tone = mins >= 20 ? "urgent" : mins >= 10 ? "late" : "fresh";
+  const type = typeLabel(order);
+  const left = items.length - readyCount;
+
+  return (
+    <article className={`ticket ticket--${tone}`} aria-label={`Заказ ${orderNumber(order)}`}>
+      <header className="ticket__head">
+        <div className="ticket__id">
+          <span className="ticket__label">{order.table_number ? "Стол" : type || "Заказ"}</span>
+          <span className={order.table_number ? "ticket__table" : "ticket__type"}>
+            {order.table_number || type || "—"}
+          </span>
+          <span className="ticket__num">
+            № {orderNumber(order)}
+            {order.table_number && type ? ` · ${type}` : ""}
+          </span>
         </div>
-        <div className="kds-card__timer" title="Время ожидания">
+
+        <span className="ticket__timer" title="Время с момента заказа">
+          <i className={`ticket__dot is-${tone}`} aria-hidden="true" />
           {formatElapsed(order.created_at, now)}
-        </div>
+        </span>
+      </header>
+
+      <div className="ticket__body">
+        {order.note ? (
+          <p className="ticket__note">
+            <IconAlert size={15} />
+            <span>{order.note}</span>
+          </p>
+        ) : null}
+
+        <ul className="ticket__dishes">
+          {items.map((item) => (
+            <DishRow
+              key={item.id}
+              item={item}
+              busy={busyId === item.id}
+              onStatus={onItemStatus}
+            />
+          ))}
+        </ul>
       </div>
-      {order.note ? <div className="kds-card__note">{order.note}</div> : null}
-      <div className="kds-card__progress">
-        <div className="kds-card__progress-bar" style={{ width: `${items.length ? (readyCount / items.length) * 100 : 0}%` }} />
-      </div>
-      <ul className="kds-card__items">
-        {items.map((item) => {
-          const st = itemState(item);
-          const busy = busyId === item.id;
-          return (
-            <li key={item.id} className={`kds-item ${st === "ready" ? "kds-item--ready" : ""}`}>
-              <span className="kds-item__qty">{Number(item.quantity || 1)}×</span>
-              <div className="kds-item__body">
-                <span className="kds-item__name">{item.name || item.product_name || "Блюдо"}</span>
-                {item.note ? <span className="kds-item__note">{item.note}</span> : null}
-              </div>
-              {st === "ready" ? (
-                <span className="kds-item__done-mark" aria-label="Готово">✓</span>
-              ) : st === "pending" ? (
-                <button
-                  className="kds-btn kds-btn--cook"
-                  type="button"
-                  disabled={busy}
-                  onClick={() => onItemStatus(item, "cooking")}
-                >
-                  Готовить
-                </button>
-              ) : (
-                <button
-                  className="kds-btn kds-btn--ready"
-                  type="button"
-                  disabled={busy}
-                  onClick={() => onItemStatus(item, "ready")}
-                >
-                  Готово
-                </button>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-      <button
-        className="kds-btn kds-btn--order"
-        type="button"
-        disabled={!allReady || busyId === order.id}
-        onClick={() => onOrderReady(order)}
-      >
-        {allReady ? "ЗАКАЗ ГОТОВ" : `Готово ${readyCount}/${items.length}`}
-      </button>
+
+      <footer className="ticket__foot">
+        <span className="ticket__ratio">
+          <b>{readyCount}</b>
+          <span>/{items.length}</span>
+        </span>
+
+        <span className="ticket__ticks" aria-hidden="true">
+          {items.map((item) => (
+            <i key={item.id} className={itemState(item) === "ready" ? "is-on" : ""} />
+          ))}
+        </span>
+
+        <button
+          className="ticket__serve"
+          type="button"
+          disabled={!allReady || busyId === order.id}
+          onClick={() => onOrderReady(order)}
+          aria-label={
+            allReady
+              ? "Отдать заказ"
+              : `Заказ не готов: осталось ${left} ${plural(left, "блюдо", "блюда", "блюд")}`
+          }
+        >
+          {busyId === order.id ? (
+            <IconSpinner size={16} />
+          ) : allReady ? (
+            <>
+              Отдать
+              <IconArrow size={16} />
+            </>
+          ) : (
+            `Ждём ${left}`
+          )}
+        </button>
+      </footer>
     </article>
   );
 }
+
+// ── Левая стойка с инструментами ──────────────────────────────────────────
+
+function Rail({ online, soundOn, onSound, onRefresh, onFullscreen, onLogout }) {
+  return (
+    <aside className="rail">
+      <div className="rail__mark" aria-label="MARJON">
+        M
+      </div>
+
+      <div
+        className={`rail__conn ${online ? "is-on" : "is-off"}`}
+        title={online ? "Связь с сервером есть" : "Нет связи с сервером"}
+      >
+        {online ? <IconWifi size={16} /> : <IconWifiOff size={16} />}
+        <span className="rail__conn-text">{online ? "онлайн" : "офлайн"}</span>
+      </div>
+
+      <div className="rail__tools">
+        <button
+          className={`rail__btn ${soundOn ? "is-on" : ""}`}
+          type="button"
+          onClick={onSound}
+          title={soundOn ? "Звук включён" : "Звук выключен"}
+          aria-pressed={soundOn}
+          aria-label={soundOn ? "Выключить звук" : "Включить звук"}
+        >
+          {soundOn ? <IconSound size={19} /> : <IconSoundOff size={19} />}
+        </button>
+
+        <button
+          className="rail__btn"
+          type="button"
+          onClick={onRefresh}
+          title="Обновить заказы"
+          aria-label="Обновить заказы"
+        >
+          <IconRefresh size={19} />
+        </button>
+
+        <button
+          className="rail__btn"
+          type="button"
+          onClick={onFullscreen}
+          title="Во весь экран"
+          aria-label="Во весь экран"
+        >
+          <IconExpand size={19} />
+        </button>
+      </div>
+
+      <button
+        className="rail__btn rail__btn--out"
+        type="button"
+        onClick={onLogout}
+        title="Сменить повара"
+        aria-label="Сменить повара"
+      >
+        <IconLogout size={19} />
+      </button>
+    </aside>
+  );
+}
+
+// ── Общая оболочка экранов входа ──────────────────────────────────────────
+
+function GateAside({ eyebrow, title, facts, footer }) {
+  return (
+    <aside className="gate__aside">
+      <div className="gate__brand">
+        {/* Тот же знак, что в веб-логине и сайдбаре: кухня — часть продукта,
+            а не отдельное приложение со своим логотипом. */}
+        <img src={logo} alt="" width={44} height={44} decoding="async" />
+        <span className="gate__wordmark">
+          Marjon
+          <small>кухонный экран</small>
+        </span>
+      </div>
+
+      <div className="gate__pitch">
+        <p className="eyebrow">{eyebrow}</p>
+        <h1 className="gate__title">{title}</h1>
+      </div>
+
+      <div className="gate__tail">
+        <ol className="gate__facts">
+          {facts.map((fact) => (
+            <li key={fact}>{fact}</li>
+          ))}
+        </ol>
+
+        <div className="gate__foot">{footer}</div>
+      </div>
+    </aside>
+  );
+}
+
+// ── Экран ─────────────────────────────────────────────────────────────────
 
 export default function KitchenApp() {
   // Экран настраивается один раз (логин+пароль филиала), дальше повара
@@ -154,17 +398,23 @@ export default function KitchenApp() {
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
   const [soundOn, setSoundOn] = useState(true);
+  const [online, setOnline] = useState(true);
   const [busyId, setBusyId] = useState(null);
   const [toast, setToast] = useState("");
+  const [filter, setFilter] = useState("all");
   const seenIdsRef = useRef(new Set());
   const toastTimerRef = useRef(null);
+  const pinInputRef = useRef(null);
+  // Зеркало PIN в ref: два быстрых тапа подряд идут в одном кадре, и чтение
+  // pin из замыкания теряло вторую цифру. Значение ведём через ref.
+  const pinValueRef = useRef("");
 
   useEffect(() => () => clearTimeout(toastTimerRef.current), []);
 
   function flashToast(text) {
     setToast(text);
     clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = setTimeout(() => setToast(""), 3000);
+    toastTimerRef.current = setTimeout(() => setToast(""), 3200);
   }
 
   // Тикающий таймер карточек (раз в секунду)
@@ -172,6 +422,12 @@ export default function KitchenApp() {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
+
+  // Поле PIN держим в фокусе: повар может набирать и с физической клавиатуры,
+  // и с экранной — ввод идёт в одно и то же поле.
+  useEffect(() => {
+    if (deviceReady && !authed) pinInputRef.current?.focus();
+  }, [deviceReady, authed, pinError]);
 
   const loadOrders = useCallback(async () => {
     const data = await kdsGetOrders();
@@ -222,6 +478,7 @@ export default function KitchenApp() {
       try {
         const list = await loadOrders();
         if (stopped) return;
+        setOnline(true);
         const prev = seenIdsRef.current;
         if (prev.size > 0) {
           const fresh = list.filter((o) => !prev.has(String(o.id)));
@@ -232,6 +489,7 @@ export default function KitchenApp() {
         }
         seenIdsRef.current = new Set(list.map((o) => String(o.id)));
       } catch {
+        if (!stopped) setOnline(false);
         // Ошибку показывает ручной refresh и следующий тик опроса
       }
     };
@@ -255,6 +513,7 @@ export default function KitchenApp() {
           if (!stopped && !pollTimer) pollTimer = setInterval(() => refresh(false), 5000);
         };
         socket.onopen = () => {
+          setOnline(true);
           if (pollTimer) {
             clearInterval(pollTimer);
             pollTimer = null;
@@ -282,24 +541,47 @@ export default function KitchenApp() {
   async function handleSetupSubmit(event) {
     event.preventDefault();
     if (setupBusy) return;
-    if (!login.trim() || !password) {
+    // Поле маскированное: в состоянии только 9 локальных цифр, поэтому
+    // неполный номер отсекаем до запроса — иначе сервер ответит «неверный
+    // логин», хотя проблема лишь в двух недонабранных цифрах.
+    const branchLogin = isLocalPhoneComplete(login) ? toFullPhone(login) : login.trim();
+    if (!branchLogin || !password) {
       setSetupError("Укажите логин и пароль филиала.");
+      return;
+    }
+    if (!isLocalPhoneComplete(login)) {
+      setSetupError("Номер филиала вводится полностью: +998 90 111-22-33.");
       return;
     }
     setSetupError("");
     setSetupBusy(true);
     try {
-      await kdsConnectDevice(login, password);
+      await kdsConnectDevice(branchLogin, password);
       setPassword("");
       setBranch(getKdsBranch());
       setDeviceReady(true);
-      setPin("");
+      setPinValue("");
       setPinError("");
     } catch (err) {
-      setSetupError(err?.response?.data?.detail || "Неверный логин или пароль филиала.");
+      // 401 у филиала почти всегда означает не «опечатку», а то, что у
+      // филиала вообще не задан логин/пароль (Настройки → Филиалы) — без
+      // этого подсказки владелец ищет проблему в PIN повара.
+      const detail = err?.response?.data?.detail;
+      setSetupError(
+        err?.response?.status === 401
+          ? detail
+            ? `${detail}. Логин и пароль филиала задаются в админке: Настройки → Филиалы.`
+            : "Неверный логин или пароль филиала. Проверьте их в админке: Настройки → Филиалы."
+          : detail || "Не удалось подключить экран. Проверьте связь и попробуйте ещё раз.",
+      );
     } finally {
       setSetupBusy(false);
     }
+  }
+
+  function setPinValue(value) {
+    pinValueRef.current = value;
+    setPin(value);
   }
 
   async function submitPin(code) {
@@ -310,11 +592,11 @@ export default function KitchenApp() {
       const data = await kdsPinLogin(code);
       setCookName(data?.user_name || getKdsCookName());
       if (data?.branch) setBranch(data.branch);
-      setPin("");
+      setPinValue("");
       setAuthed(true);
     } catch (err) {
-      setPin("");
-      setPinError(err?.response?.data?.detail || "Неверный PIN.");
+      setPinValue("");
+      setPinError(err?.response?.data?.detail || "Неверный PIN. Попробуйте ещё раз.");
     } finally {
       setPinBusy(false);
     }
@@ -323,16 +605,28 @@ export default function KitchenApp() {
   // PIN набирается цифрами и отправляется сам на 4-м символе — повару не
   // нужно искать кнопку «Войти» мокрыми руками.
   function pressDigit(digit) {
-    if (pinBusy || pin.length >= 4) return;
+    const current = pinValueRef.current;
+    if (pinBusy || current.length >= 4) return;
     setPinError("");
-    const next = `${pin}${digit}`;
-    setPin(next);
+    const next = `${current}${digit}`;
+    setPinValue(next);
     if (next.length === 4) submitPin(next);
   }
 
   function pressBackspace() {
     if (pinBusy) return;
-    setPin((prev) => prev.slice(0, -1));
+    setPinError("");
+    setPinValue(pinValueRef.current.slice(0, -1));
+  }
+
+  // Ввод с физической клавиатуры идёт в то же поле, что и с экранной:
+  // маска, авто-отправка и очистка ошибки — одинаковые.
+  function handlePinChange(event) {
+    if (pinBusy) return;
+    const digits = String(event.target.value || "").replace(/\D/g, "").slice(0, 4);
+    setPinError("");
+    setPinValue(digits);
+    if (digits.length === 4) submitPin(digits);
   }
 
   // Выход повара: экран остаётся привязан к филиалу, следующий вводит свой PIN.
@@ -340,10 +634,11 @@ export default function KitchenApp() {
     await kdsCookLogout();
     setAuthed(false);
     setCookName("");
-    setPin("");
+    setPinValue("");
     setPinError("");
     setOrders([]);
     setError(null);
+    setFilter("all");
     seenIdsRef.current = new Set();
   }
 
@@ -357,7 +652,7 @@ export default function KitchenApp() {
     setBranch(null);
     setCookName("");
     setOrders([]);
-    setPin("");
+    setPinValue("");
     setLogin("");
   }
 
@@ -393,80 +688,205 @@ export default function KitchenApp() {
     }
   }
 
+  function refreshNow() {
+    setError(null);
+    setLoading(true);
+    loadOrders()
+      .then((list) => {
+        seenIdsRef.current = new Set(list.map((o) => String(o.id)));
+        setOnline(true);
+      })
+      .catch((e) => {
+        setOnline(false);
+        setError(e);
+      })
+      .finally(() => setLoading(false));
+  }
+
   const summary = useMemo(
     () => ({
       total: orders.length,
-      items: orders.reduce((sum, o) => sum + (o.items?.length || 0), 0),
+      // Заказы, которые горят: ждут больше 20 минут и ещё не готовы целиком.
+      urgent: orders.filter(
+        (o) => Math.floor((now - parseTs(o.created_at)) / 60000) > 20 && !isAllReady(o),
+      ).length,
+      readyToServe: orders.filter(isAllReady).length,
     }),
+    [orders, now],
+  );
+
+  // Старые заказы — первыми: повар разгребает очередь, а не список.
+  const sortedOrders = useMemo(
+    () => [...orders].sort((a, b) => parseTs(a.created_at) - parseTs(b.created_at)),
     [orders],
   );
+
+  const visibleOrders = useMemo(() => {
+    if (filter === "ready") return sortedOrders.filter(isAllReady);
+    if (filter === "cooking") return sortedOrders.filter((o) => !isAllReady(o));
+    return sortedOrders;
+  }, [sortedOrders, filter]);
+
+  const clock = clockParts(now);
 
   // Настройка экрана (один раз на устройстве): логин+пароль филиала
   if (!deviceReady) {
     return (
-      <div className="kds-login">
-        <form className="kds-login__card" onSubmit={handleSetupSubmit}>
-          <h1 className="kds-login__title">MARJON · Кухня</h1>
-          <p className="kds-login__hint">
-            Подключите экран один раз: логин и пароль филиала. Дальше повара входят по PIN.
-          </p>
-          {setupError ? (
-            <div className="kds-login__alert" role="alert">
-              {setupError}
-            </div>
-          ) : null}
-          <label className="kds-login__field">
-            <span>Логин филиала</span>
-            <input
-              type="text"
-              value={login}
-              onChange={(e) => setLogin(e.target.value)}
-              placeholder="+998 90 111-22-33"
-              autoComplete="username"
-            />
-          </label>
-          <label className="kds-login__field">
-            <span>Пароль филиала</span>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Пароль филиала"
-              autoComplete="current-password"
-            />
-          </label>
-          <button className="kds-btn kds-btn--order" type="submit" disabled={setupBusy}>
-            {setupBusy ? "Подключение…" : "Подключить экран"}
-          </button>
-        </form>
+      <div className="gate">
+        <GateAside
+          eyebrow="Первый запуск"
+          title={
+            <>
+              Один раз настроить,
+              <br />
+              дальше — только PIN
+            </>
+          }
+          facts={[
+            "Логин и пароль филиала вводятся один раз",
+            "PIN повара — четыре цифры на смену",
+            "Экран запоминает филиал сам",
+          ]}
+          footer={<span className="gate__note">MARJON POS · кухня</span>}
+        />
+
+        <section className="gate__panel">
+          <header className="gate__head">
+            <p className="eyebrow">Подключение</p>
+            <h2 className="gate__panel-title">Экран кухни</h2>
+            <p className="gate__hint">
+              Это логин и пароль <strong>филиала</strong> из карточки филиала
+              (Настройки → Филиалы), а не пароль повара. По ним экран находит свою
+              кухню; повара входят по PIN.
+            </p>
+          </header>
+
+          <form className="form" onSubmit={handleSetupSubmit} noValidate>
+            {setupError ? (
+              <div className="alert" role="alert">
+                <IconAlert size={17} />
+                <span>{setupError}</span>
+              </div>
+            ) : null}
+
+            <label className="field">
+              <span className="field__label">Логин филиала</span>
+              {/* Та же маска, что в веб-логине: код страны — статичный
+                  префикс, в поле живут только 9 локальных цифр. Раньше номер
+                  вводился сырым текстом, и «+998 90…», «998901…», «90…»
+                  давали три разных запроса. */}
+              <div className="field__phone">
+                <strong className="field__phone-prefix">+998</strong>
+                <input
+                  className="field__input"
+                  type="tel"
+                  inputMode="numeric"
+                  value={formatLocalPhone(login)}
+                  onChange={(e) => setLogin(getLocalPhoneDigits(e.target.value))}
+                  placeholder="90 111-22-33"
+                  autoComplete="tel-national"
+                  spellCheck="false"
+                />
+              </div>
+            </label>
+
+            <label className="field">
+              <span className="field__label">Пароль филиала</span>
+              <input
+                className="field__input"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                autoComplete="current-password"
+              />
+            </label>
+
+            <button className="btn btn--primary btn--block" type="submit" disabled={setupBusy}>
+              {setupBusy ? <IconSpinner size={18} /> : null}
+              {setupBusy ? "Подключаем…" : "Подключить экран"}
+            </button>
+          </form>
+        </section>
       </div>
     );
   }
 
-  // Вход повара: четыре цифры, крупные кнопки
+  // Вход повара: четыре цифры, крупные кнопки, маска в поле
   if (!authed) {
     return (
-      <div className="kds-login">
-        <div className="kds-login__card">
-          <h1 className="kds-login__title">MARJON · Кухня</h1>
-          <p className="kds-login__hint">
-            {branch?.name ? `${branch.name} · ` : ""}Введите PIN повара
-          </p>
-          <div className="kds-pin__dots" aria-label={`Введено ${pin.length} из 4 цифр`}>
-            {[0, 1, 2, 3].map((i) => (
-              <span key={i} className={`kds-pin__dot ${pin.length > i ? "is-filled" : ""}`} />
-            ))}
-          </div>
-          {pinError ? (
-            <div className="kds-login__alert" role="alert">
-              {pinError}
+      <div className="gate">
+        <GateAside
+          eyebrow="Смена"
+          title={
+            <>
+              Четыре цифры —
+              <br />
+              и кухня под контролем
+            </>
+          }
+          facts={[
+            "Заказы приходят сами, без обновления страницы",
+            "Готовность блюда — одно касание",
+            "Экран помнит филиал между сменами",
+          ]}
+          footer={
+            <button className="linkbtn" type="button" onClick={handleForgetDevice}>
+              Сбросить привязку экрана
+            </button>
+          }
+        />
+
+        <section className="gate__panel">
+          <header className="gate__head">
+            <p className="eyebrow">{branch?.name || "Филиал"}</p>
+            <h2 className="gate__panel-title">Вход повара</h2>
+            <p className="gate__hint">Введите PIN из четырёх цифр — вход произойдёт сам.</p>
+          </header>
+
+          <div className={`pin ${pinError ? "is-error" : ""} ${pinBusy ? "is-busy" : ""}`}>
+            {/* Настоящее поле: держит фокус, принимает и экранную, и физическую
+                клавиатуру. Само скрыто — рисуем маску из четырёх ячеек. */}
+            <input
+              ref={pinInputRef}
+              className="pin__input"
+              type="text"
+              inputMode="none"
+              autoComplete="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              maxLength={4}
+              value={pin}
+              onChange={handlePinChange}
+              aria-label="PIN повара, 4 цифры"
+            />
+            <div
+              className="pin__slots"
+              aria-hidden="true"
+              onClick={() => pinInputRef.current?.focus()}
+            >
+              {[0, 1, 2, 3].map((i) => (
+                <span key={i} className={`pin__slot ${pin.length > i ? "is-filled" : ""}`} />
+              ))}
             </div>
-          ) : null}
-          <div className="kds-keypad">
+            <p className="pin__msg" role={pinError ? "alert" : undefined}>
+              {pinBusy ? (
+                <>
+                  <IconSpinner size={14} /> Проверяем PIN
+                </>
+              ) : pinError ? (
+                pinError
+              ) : (
+                "Можно набирать на клавиатуре экрана"
+              )}
+            </p>
+          </div>
+
+          <div className="keypad">
             {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((digit) => (
               <button
                 key={digit}
-                className="kds-keypad__key"
+                className="keypad__key"
                 type="button"
                 disabled={pinBusy}
                 onClick={() => pressDigit(digit)}
@@ -474,15 +894,9 @@ export default function KitchenApp() {
                 {digit}
               </button>
             ))}
+            <span className="keypad__gap" aria-hidden="true" />
             <button
-              className="kds-keypad__key kds-keypad__key--ghost"
-              type="button"
-              onClick={handleForgetDevice}
-            >
-              Сброс
-            </button>
-            <button
-              className="kds-keypad__key"
+              className="keypad__key"
               type="button"
               disabled={pinBusy}
               onClick={() => pressDigit("0")}
@@ -490,94 +904,166 @@ export default function KitchenApp() {
               0
             </button>
             <button
-              className="kds-keypad__key"
+              className="keypad__key keypad__key--ghost"
               type="button"
               disabled={pinBusy || !pin.length}
               onClick={pressBackspace}
-              aria-label="Стереть"
+              aria-label="Стереть последнюю цифру"
             >
-              ⌫
+              <IconBackspace size={22} />
             </button>
           </div>
-          {pinBusy ? <p className="kds-login__hint">Проверяем PIN…</p> : null}
-        </div>
+        </section>
       </div>
     );
   }
 
+  const tabs = [
+    { key: "all", label: "Все", count: summary.total },
+    { key: "cooking", label: "Готовим", count: summary.total - summary.readyToServe },
+    { key: "ready", label: "К отдаче", count: summary.readyToServe },
+  ];
+
   return (
     <div className="kds">
-      <header className="kds-topbar">
-        <div className="kds-topbar__info">
-          <h1 className="kds-topbar__title">Кухня</h1>
-          <div className="kds-topbar__sub">
-            MARJON · {summary.total} заказов · {summary.items} блюд
-            {branch?.name ? ` · ${branch.name}` : ""}
-            {cookName ? ` · ${cookName}` : ""}
-          </div>
-        </div>
-        <div className="kds-topbar__controls">
-          <button
-            className="kds-chip"
-            type="button"
-            onClick={() => setSoundOn((v) => !v)}
-            title="Звук новых заказов"
-          >
-            {soundOn ? "Звук вкл" : "Звук выкл"}
-          </button>
-          <button
-            className="kds-chip"
-            type="button"
-            onClick={() => document.documentElement.requestFullscreen?.()}
-          >
-            Во весь экран
-          </button>
-          <button className="kds-chip" type="button" onClick={handleCookLogout}>
-            Сменить повара
-          </button>
-        </div>
-      </header>
+      <Rail
+        online={online}
+        soundOn={soundOn}
+        onSound={() => setSoundOn((v) => !v)}
+        onRefresh={refreshNow}
+        onFullscreen={() => document.documentElement.requestFullscreen?.()}
+        onLogout={handleCookLogout}
+      />
 
-      {error ? (
-        <div className="kds-empty" role="alert">
-          Не удалось загрузить заказы. Проверьте связь и нажмите «Обновить».
-          <div>
-            <button
-              className="kds-btn kds-btn--cook"
-              type="button"
-              onClick={() => {
-                setError(null);
-                setLoading(true);
-                loadOrders()
-                  .then((list) => {
-                    seenIdsRef.current = new Set(list.map((o) => String(o.id)));
-                  })
-                  .catch((e) => setError(e))
-                  .finally(() => setLoading(false));
-              }}
-            >
-              Обновить
-            </button>
+      <div className="kds__main">
+        <header className="head">
+          <div className="head__id">
+            <p className="eyebrow">
+              Кухня · {branch?.name || "филиал"}
+            </p>
+            <h1 className="head__title">{cookName || "Повар"}</h1>
           </div>
-        </div>
-      ) : loading ? (
-        <div className="kds-empty">Загрузка заказов…</div>
-      ) : (
-        <main className="kds-board">
-          {orders.map((order) => (
-            <KdsOrderCard
-              key={order.id}
-              order={order}
-              now={now}
-              busyId={busyId}
-              onItemStatus={handleItemStatus}
-              onOrderReady={handleOrderReady}
-            />
-          ))}
-          {!orders.length ? <div className="kds-empty">Активных заказов нет.</div> : null}
+
+          <div className="head__tabs" role="group" aria-label="Фильтр заказов">
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                className={`tab ${filter === tab.key ? "is-active" : ""}`}
+                type="button"
+                aria-pressed={filter === tab.key}
+                onClick={() => setFilter(tab.key)}
+              >
+                {tab.label}
+                <span className="tab__count">{tab.count}</span>
+              </button>
+            ))}
+          </div>
+
+          {summary.urgent > 0 ? (
+            <p className="head__alarm">
+              <IconAlert size={15} />
+              {summary.urgent} {plural(summary.urgent, "заказ", "заказа", "заказов")}{" "}
+              {plural(summary.urgent, "горит", "горят", "горят")}
+            </p>
+          ) : null}
+
+          <div className="head__clock" aria-label="Текущее время">
+            <span className="clock">
+              <b>
+                {clock.hh}:{clock.mm}
+              </b>
+              <i>{clock.ss}</i>
+            </span>
+            <span className="head__date">{clock.date}</span>
+          </div>
+        </header>
+
+        <main className="board" aria-busy={loading ? "true" : "false"}>
+          {error ? (
+            <section className="state">
+              <p className="eyebrow">Нет связи</p>
+              <h2 className="state__title">Сервер не отвечает</h2>
+              <p className="state__text">
+                Заказы не загрузились. Проверьте интернет — экран сам подхватит очередь, как
+                только связь вернётся.
+              </p>
+              <button className="btn btn--primary" type="button" onClick={refreshNow}>
+                <IconRefresh size={17} />
+                Обновить
+              </button>
+            </section>
+          ) : loading ? (
+            <>
+              {[0, 1, 2, 3].map((i) => (
+                <div className="sk-ticket" key={i} aria-hidden="true">
+                  <div className="sk sk--stub" />
+                  <div className="sk sk--body" />
+                </div>
+              ))}
+              <p className="board__loading">
+                <IconSpinner size={15} /> Загружаем заказы
+              </p>
+            </>
+          ) : visibleOrders.length ? (
+            visibleOrders.map((order) => (
+              <Ticket
+                key={order.id}
+                order={order}
+                now={now}
+                busyId={busyId}
+                onItemStatus={handleItemStatus}
+                onOrderReady={handleOrderReady}
+              />
+            ))
+          ) : orders.length ? (
+            <section className="state">
+              <p className="eyebrow">Фильтр</p>
+              <h2 className="state__title">Здесь пока пусто</h2>
+              <p className="state__text">
+                {filter === "ready"
+                  ? "Все заказы ещё в работе. Как только блюда будут готовы, они появятся здесь."
+                  : "В работе нет заказов — все блюда уже отданы."}
+              </p>
+              <button className="btn" type="button" onClick={() => setFilter("all")}>
+                Показать все заказы
+              </button>
+            </section>
+          ) : (
+            <section className="state state--empty">
+              <div className="state__intro">
+                <p className="eyebrow">Очередь пуста</p>
+                <h2 className="state__title">Кухня свободна</h2>
+                <p className="state__text">
+                  Новые заказы появятся здесь сами: экран слушает очередь и обновляется
+                  каждые пять секунд.
+                </p>
+                <p className="state__sync">
+                  последняя синхронизация <b>{clock.hh}:{clock.mm}:{clock.ss}</b>
+                </p>
+              </div>
+
+              {/* Пустые места под чеки: объясняют, что сюда приедут заказы,
+                  и не оставляют экран пустым пятном. */}
+              <div className="state__slots" aria-hidden="true">
+                {[0, 1, 2].map((slot) => (
+                  <span className="state__slot" key={slot}>
+                    <i />
+                    <i />
+                    <i />
+                  </span>
+                ))}
+              </div>
+            </section>
+          )}
         </main>
-      )}
-      {toast ? <div className="kds-toast">{toast}</div> : null}
+      </div>
+
+      {toast ? (
+        <div className="toast" role="status" aria-live="polite">
+          <span className="toast__rail" aria-hidden="true" />
+          <span className="toast__text">{toast}</span>
+        </div>
+      ) : null}
     </div>
   );
 }

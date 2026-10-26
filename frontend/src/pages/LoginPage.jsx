@@ -7,6 +7,12 @@ import { loginAsBranch, clearBranchSession } from "../auth/branchSession";
 import logo from "../assets/brand/marjon-logo.svg";
 import Icon from "../components/Icon";
 import { useMutationLocks } from "../hooks/useAsyncSafety";
+import { formatLocalPhone, getLocalPhoneDigits } from "../utils/phoneMask";
+
+// Маска номера теперь общая (utils/phoneMask) — её же использует
+// кухонный экран и настройки филиала. Реэкспорт оставлен, чтобы не
+// ломать существующие импорты и тесты этой страницы.
+export { formatLocalPhone, getLocalPhoneDigits };
 
 const LANGUAGES = [
   // native — самоназвание языка (в меню показываем его, а не код: понятнее и профессиональнее)
@@ -14,28 +20,6 @@ const LANGUAGES = [
   { code: "ru", short: "RU", label: "Russian", native: "Русский", flagUrl: "https://flagcdn.com/w40/ru.png" },
   { code: "en", short: "EN", label: "English", native: "English", flagUrl: "https://flagcdn.com/w40/gb.png" },
 ];
-
-export function getLocalPhoneDigits(raw) {
-  const digits = String(raw || "").replace(/\D/g, "");
-  // The +998 country code is rendered separately; this field holds only the 9
-  // local digits. Strip a leading 998 solely for a full international-length
-  // input (12 = "998" + 9 local digits) — a pasted +998 number. A bare local
-  // number is at most 9 digits, so any 10–11 digit value is over-typing of the
-  // local field and must be clamped (below), not stripped; and a local number
-  // that itself begins with 998 (or an incremental "998…" while typing) must be
-  // preserved, not reset.
-  const body = digits.length >= 12 && digits.startsWith("998") ? digits.slice(3) : digits;
-  return body.slice(0, 9);
-}
-
-export function formatLocalPhone(raw) {
-  const local = getLocalPhoneDigits(raw);
-
-  if (local.length <= 2) return local;
-  if (local.length <= 5) return `${local.slice(0, 2)} ${local.slice(2)}`;
-  if (local.length <= 7) return `${local.slice(0, 2)} ${local.slice(2, 5)}-${local.slice(5)}`;
-  return `${local.slice(0, 2)} ${local.slice(2, 5)}-${local.slice(5, 7)}-${local.slice(7)}`;
-}
 
 function getLanguageCode(i18n) {
   const lang = String(i18n.resolvedLanguage || i18n.language || "ru");

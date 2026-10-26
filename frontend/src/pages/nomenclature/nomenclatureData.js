@@ -108,6 +108,8 @@ export function mapNomenclatureProduct(item, units = []) {
     printerId: item.printer_id ? String(item.printer_id) : null,
     chef: "",
     photo: item.image_url || "",
+    // V46: шаг порции (null/undefined = целые порции).
+    portionStep: item.portion_step != null ? String(item.portion_step) : "",
   };
 }
 
@@ -156,6 +158,9 @@ export function buildNomenclatureProductPayload(form, { isUpdate = false } = {})
   // subcategory_id не шлём никогда (поле удалено из дровера).
   if (form.categoryId) payload.category_id = form.categoryId;
   if (form.printerId) payload.printer_id = form.printerId;
+  // V46: шаг порции — шлём только если выбран валидный шаг.
+  const step = String(form.portionStep || "").trim().replace(",", ".");
+  if (step && ["0.1", "0.25", "0.5"].includes(step)) payload.portion_step = Number(step);
   return payload;
 }
 

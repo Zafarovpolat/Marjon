@@ -13,10 +13,12 @@ import { t } from '../shared/i18n'
  *   options? — если передан список [{ value, label }], вместо ввода показывается кастомный выбор
  *   extra? — доп. необязательное поле-комментарий { label, placeholder }
  *   submitLabel? — текст кнопки (по умолчанию «Сохранить»)
+ *   allowEmpty? — разрешить отправить пустое значение (для необязательного
+ *                 комментария: причина возврата заказа и т.п.)
  *   onSubmit(value, extraValue) — async; при ошибке текст показывается внутри модалки
  *   onClose()
  */
-export default function InputPromptModal({ title, hint, placeholder = '', initial = '', type = 'text', options = [], extra, submitLabel, onSubmit, onClose }) {
+export default function InputPromptModal({ title, hint, placeholder = '', initial = '', type = 'text', options = [], extra, submitLabel, allowEmpty = false, onSubmit, onClose }) {
   const [value, setValue] = useState(() => String(initial || options[0]?.value || ''))
   const [extraValue, setExtraValue] = useState('')
   const [busy, setBusy] = useState(false)
@@ -29,7 +31,7 @@ export default function InputPromptModal({ title, hint, placeholder = '', initia
   const availableOptions = normalizedOptions.filter((option) => String(option.value) !== value)
 
   async function submit() {
-    if (busy || String(value).trim() === '') return
+    if (busy || (!allowEmpty && String(value).trim() === '')) return
     setBusy(true); setErr('')
     try {
       await onSubmit(String(value).trim(), extraValue.trim())
@@ -118,7 +120,7 @@ export default function InputPromptModal({ title, hint, placeholder = '', initia
         </div>
         <div className="prompt-modal__actions">
           <button className="btn btn--outline" disabled={busy} onClick={onClose}>{t('cancel')}</button>
-          <button className="btn btn--primary" disabled={busy || String(value).trim() === ''} onClick={submit}>
+          <button className="btn btn--primary" disabled={busy || (!allowEmpty && String(value).trim() === '')} onClick={submit}>
             {busy && <span className="btn-spinner" aria-hidden="true" />} {submitLabel || t('save')}
           </button>
         </div>

@@ -616,7 +616,7 @@ export default function OrdersReportPage() {
 
         <div className="report-table-wrapper owner-report-table-scroll" aria-busy={loading ? "true" : "false"}>
           <table className="report-table owner-report-table" aria-label="Отчёт по заказам">
-            <thead><tr><th>Номер заказа</th><th>Тип</th><th>Дата</th><th>Место</th><th>Цена всего</th><th>Официант</th><th>Кассир</th><th>Статус</th></tr></thead>
+            <thead><tr><th>Номер заказа</th><th>Тип</th><th>Дата</th><th>Место</th><th>Цена всего</th><th>Тип оплаты</th><th>Официант</th><th>Кассир</th><th>Статус</th></tr></thead>
             <tbody>
               {visibleRows.map((row) => (
                 <tr
@@ -633,10 +633,10 @@ export default function OrdersReportPage() {
                     }
                   }}
                 >
-                  <td><strong>{row.orderNumber}</strong></td><td>{orderTypeLabel(row.orderType)}</td><td>{formatDate(row.createdAt)}</td><td>{formatPlace(row.hallName, row.tableNumber) || "—"}</td><td className="report-total-price">{formatMoney(row.totalAmount)}</td><td>{row.waiterName ?? "—"}</td><td>{formatCashierNames(row.cashierNames)}</td><td><OrderStatus value={row.status} /></td>
+                  <td><strong>{row.orderNumber}</strong></td><td>{orderTypeLabel(row.orderType)}</td><td>{formatDate(row.createdAt)}</td><td>{formatPlace(row.hallName, row.tableNumber) || "—"}</td><td className="report-total-price">{formatMoney(row.totalAmount)}</td><td>{joinPaymentMethods(row.paymentMethods) || "—"}</td><td>{row.waiterName ?? "—"}</td><td>{formatCashierNames(row.cashierNames)}</td><td><OrderStatus value={row.status} /></td>
                 </tr>
               ))}
-              {!visibleRows.length ? <tr className="report-empty-row"><td colSpan={8}><ReportEmptyState title="Заказов не найдено" loading={loading} /></td></tr> : null}
+              {!visibleRows.length ? <tr className="report-empty-row"><td colSpan={9}><ReportEmptyState title="Заказов не найдено" loading={loading} /></td></tr> : null}
             </tbody>
           </table>
         </div>

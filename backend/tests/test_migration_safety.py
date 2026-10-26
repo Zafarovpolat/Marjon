@@ -439,7 +439,7 @@ def test_new_migration_filenames_contain_their_revision_id(chain: dict[str, _Mig
 def test_merge_revisions_are_schema_noop(chain: dict[str, _Migration]) -> None:
     """Мердж сводит линии, но не меняет схему: DDL внутри мерджа не виден ревью."""
     merges = [migration for migration in chain.values() if migration.is_merge]
-    assert {migration.revision for migration in merges} == {"mg01merge", "mg02merge"}
+    assert {migration.revision for migration in merges} == {"mg01merge", "mg02merge", "mg03merge"}
     for migration in merges:
         assert not migration.adds, (
             f"{migration.path.name}: merge-ревизия не должна создавать объекты "

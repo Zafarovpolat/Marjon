@@ -126,6 +126,10 @@ export default function StaffFormModal({
   // (7-col roles, exact Cashier matrix per CASHIER-PARITY-01, no HR, no printer binding).
   isManager = false,
   isWarehouse = false,
+  // KITCHEN-01: повар использует тот же боковой drawer, что и остальные роли
+  // зала. Отличие только в наборе тумблеров (Статус + два кухонных права) и в
+  // подписи PIN — повару код нужен для входа на кухонный экран, не на кассу.
+  isKitchen = false,
   closing = false,
   // Cashier drawer inline submit error (no browser-native popups on this path).
   saveError = "",
@@ -140,12 +144,13 @@ export default function StaffFormModal({
   // MONOBLOCK-01: monoblock shares the shell with role-aware strings/switches.
   // MANAGER-STOREKEEPER-01: manager/warehouse share the shell; primary
   // switches collapse to Статус only, matrix mirrors Cashier 1:1 (FRONTEND ONLY).
-  const isProductDrawer = isCashier || isWaiter || isMonoblock || isManager || isWarehouse;
+  const isProductDrawer = isCashier || isWaiter || isMonoblock || isManager || isWarehouse || isKitchen;
   if (isProductDrawer) {
     const isWaiterView = isWaiter;
     const isMonoblockView = isMonoblock;
     const isManagerView = isManager;
     const isWarehouseView = isWarehouse;
+    const isKitchenView = isKitchen;
     const isCuratedView = isManagerView || isWarehouseView;
     const addTitle = isWaiterView
       ? "Добавить официанта"
@@ -155,7 +160,9 @@ export default function StaffFormModal({
           ? "Добавить менеджера"
           : isWarehouseView
             ? "Добавить завсклада"
-            : "Добавить кассира";
+            : isKitchenView
+              ? "Добавить повара"
+              : "Добавить кассира";
     const editTitle = isWaiterView
       ? "Изменить официанта"
       : isMonoblockView
@@ -164,7 +171,9 @@ export default function StaffFormModal({
           ? "Изменить менеджера"
           : isWarehouseView
             ? "Изменить завсклада"
-            : "Изменить кассира";
+            : isKitchenView
+              ? "Изменить повара"
+              : "Изменить кассира";
     const namePlaceholder = isWaiterView
       ? "Имя официанта"
       : isMonoblockView
@@ -173,7 +182,9 @@ export default function StaffFormModal({
           ? "Имя менеджера"
           : isWarehouseView
             ? "Имя завсклада"
-            : "Имя кассира";
+            : isKitchenView
+              ? "Имя повара"
+              : "Имя кассира";
     const photoAlt = isWaiterView
       ? "Фото официанта"
       : isMonoblockView
@@ -182,7 +193,9 @@ export default function StaffFormModal({
           ? "Фото менеджера"
           : isWarehouseView
             ? "Фото завсклада"
-            : "Фото кассира";
+            : isKitchenView
+              ? "Фото повара"
+              : "Фото кассира";
     const formKeyPrefix = isWaiterView
       ? "waiter"
       : isMonoblockView
@@ -191,7 +204,9 @@ export default function StaffFormModal({
           ? "manager"
           : isWarehouseView
             ? "warehouse"
-            : "cashier";
+            : isKitchenView
+              ? "kitchen"
+              : "cashier";
     // CASHIER-PARITY-01 (Phase 1): every product drawer — cashier, waiter,
     // monoblock, manager, warehouse — renders the SAME staffAccessModules
     // matrix (same count/text/order). No HR key exists in config; nothing
@@ -367,7 +382,7 @@ export default function StaffFormModal({
                 входит по телефону и паролю. */}
             {isMonoblock ? null : (
             <label>
-              <span>PIN для кассы</span>
+              <span>{isKitchenView ? "PIN для кухни" : "PIN для кассы"}</span>
               <input
                 autoComplete="off"
                 inputMode="numeric"
@@ -376,13 +391,21 @@ export default function StaffFormModal({
                 onChange={(event) => updateForm("pin", event.target.value.replace(/\D/g, "").slice(0, 4))}
                 placeholder="4 цифры"
                 aria-invalid={saveErrorField === "pin" && saveError ? true : undefined}
-                aria-describedby="staff-pin-hint"
+                aria-describedby={
+                  editingId || !isKitchenView ? "staff-pin-hint" : undefined
+                }
               />
-              <small className="muted" id="staff-pin-hint">
-                {editingId
-                  ? "Пусто — оставить прежний PIN. Забыли код — введите новый."
-                  : "Код для входа на кассе. Можно оставить пустым."}
-              </small>
+              {/* Повару подсказку не показываем: PIN для кухни обязателен, и это
+                  проверяется при сохранении, а не мелким текстом под полем. */}
+              {editingId ? (
+                <small className="muted" id="staff-pin-hint">
+                  Пусто — оставить прежний PIN. Забыли код — введите новый.
+                </small>
+              ) : isKitchenView ? null : (
+                <small className="muted" id="staff-pin-hint">
+                  Код для входа на кассе. Можно оставить пустым.
+                </small>
+              )}
               {saveErrorField === "pin" && saveError ? (
                 <small className="staff-field-error" role="alert">{saveError}</small>
               ) : null}
@@ -427,7 +450,7 @@ export default function StaffFormModal({
               <i>{form.status === "active" ? "Активный" : "Архив"}</i>
               <b className="staff-switch" aria-hidden="true" />
             </button>
-            {isMonoblockView || isCuratedView ? null : (
+            {isMonoblockView || isCuratedView || isKitchenView ? null : (
             <button
               className={`staff-permission-switch ${form.canDeleteDishes ? "is-on" : ""}`}
               type="button"
@@ -451,7 +474,7 @@ export default function StaffFormModal({
               <b className="staff-switch" aria-hidden="true" />
             </button>
             ) : null}
-            {isMonoblockView || isCuratedView ? null : (
+            {isMonoblockView || isCuratedView || isKitchenView ? null : (
             <button
               className={`staff-permission-switch ${form.canTakeawayAtTable ? "is-on" : ""}`}
               type="button"
@@ -463,7 +486,7 @@ export default function StaffFormModal({
               <b className="staff-switch" aria-hidden="true" />
             </button>
             )}
-            {isMonoblockView || isCuratedView ? null : (
+            {isMonoblockView || isCuratedView || isKitchenView ? null : (
             <button
               className={`staff-permission-switch ${form.canChangeOrderType ? "is-on" : ""}`}
               type="button"
@@ -555,7 +578,36 @@ export default function StaffFormModal({
             </button>
             </>
             ) : null}
-            {isWaiterView || isMonoblockView || isCuratedView ? null : (
+            {/* KITCHEN-01: тумблеры повара. Оба права реально читаются:
+                can_cook_printer — печать заказа на кухонный принтер,
+                can_print_cancel — печать отмены. Остальные тумблеры кассира
+                повару не показываем: он не закрывает счёт и не открывает
+                денежный ящик. */}
+            {isKitchenView ? (
+            <>
+            <button
+              className={`staff-permission-switch ${form.canCookPrinter ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canCookPrinter")}
+              aria-pressed={Boolean(form.canCookPrinter)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Печать на принтер повара</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
+            <button
+              className={`staff-permission-switch ${form.canPrintCancel ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canPrintCancel")}
+              aria-pressed={Boolean(form.canPrintCancel)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Печать отмены заказа</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
+            </>
+            ) : null}
+            {isWaiterView || isMonoblockView || isCuratedView || isKitchenView ? null : (
             <>
             <button
               className={`staff-permission-switch ${form.canCloseBill ? "is-on" : ""}`}

@@ -1,6 +1,8 @@
 import { useState } from 'react'
-import { X, Plus, Minus } from 'lucide-react'
+import { X, Plus, Minus, Ban, Clock, User } from 'lucide-react'
 import { t } from '../shared/i18n'
+import { formatQty } from '../shared/qty'
+import { sanitizeDecimal, sanitizeInt } from '../shared/numeric'
 
 /**
  * DishModal — правка позиции заказа: порция, цена и комментарий.
@@ -9,35 +11,54 @@ import { t } from '../shared/i18n'
  * Порция и цена ЖЁСТКО связаны через цену за 1 порцию (product.price):
  *   цена(итог) = порция × цена_за_порцию.
  * Меняешь порцию — пересчитывается цена; меняешь цену — пересчитывается порция.
- * Цена за порцию и себестоимость (product.cost_price) при этом НЕ меняются —
- * себестоимость показываем справочно, как константу.
+ * Цена за порцию при этом НЕ меняется.
  *
- * props: product (name, price = цена за порцию, cost_price = себестоимость),
- *        line ({qty,price,note,takeaway}) — начальные значения,
- *        onSubmit({ quantity, price, note, takeaway }) — price = цена за порцию (курс),
+ * Себестоимость здесь НЕ показываем: экран открывает официант/кассир у гостя,
+ * закупочные цены — не их информация (убрано по требованию заказчика).
+ *
+ * Компактная вёрстка: экран должен целиком влезать на терминал вместе с блоком
+ * «кто добавил», сменой официанта и отменой блюда.
+ *
+ * props: product (name, price = цена за порцию),
+ *        line ({qty,price,note,takeaway,modifiers}) — начальные значения,
+ *        onSubmit({ quantity, price, note, takeaway, modifiers }) — price = цена за порцию (курс),
  *        onClose(). hideTakeaway — скрыть «с собой» (у курьера заказ всегда «с собой»).
+ *        meta — { addedByName, createdAt } кто и когда добавил позицию,
+ *        onCancelDish — отменить (вернуть) блюдо с обязательной причиной.
+ *
+ * Смены официанта здесь больше нет: ответственного за позицию меняет касса
+ * на экране заказа, а карточка блюда — только про порцию, цену и комментарий.
  */
-export default function DishModal({ product, line, onSubmit, onClose, hideTakeaway = false }) {
+export default function DishModal({
+  product, line, onSubmit, onClose, hideTakeaway = false,
+  meta = null, onCancelDish, readOnly = false,
+}) {
+  const step = Number(product?.portion_step) || 1
+  const isFractional = step !== 1 && step > 0
+
   // Базовая цена за 1 порцию БЕЗ добавок — фиксированный курс пересчёта порция↔цена.
   // Если позиция уже редактируется с добавками, line.price включает их наценку —
   // вычитаем её, чтобы получить чистую цену блюда.
   const initModifiers = Array.isArray(line?.modifiers) ? line.modifiers : []
   const initModDelta = initModifiers.reduce((s, m) => s + (Number(m.price_delta) || 0), 0)
   const unitPrice = (Number(line?.price ?? product?.price) || 0) - initModDelta
-  const costPrice = Number(product?.cost_price) || 0
   // Порцию, которую кассир вводит НАПРЯМУЮ (или щёлкает ±), приводим к аккуратным
-  // 2 знакам. Минимум — 0.01, чтобы порция не ушла в ноль/минус.
+  // знакам в зависимости от шага (0.1→1 знак, 0.25→2 знака, иначе 2).
   const snapQty = (n) => {
-    const v = Math.round(Number(n) * 100) / 100
-    return v > 0 ? v : 0.01
+    const decimals = step === 0.1 ? 1 : step === 0.25 ? 2 : 2
+    const factor = 10 ** decimals
+    const v = Math.round(Number(n) * factor) / factor
+    return v > 0 ? v : step
   }
-  // Отображение порции в поле: 2 знака с ОТБРАСЫВАНИЕМ лишнего (не округляя вверх),
+  // Отображение порции в поле: знаки с ОТБРАСЫВАНИЕМ лишнего (не округляя вверх),
   // чтобы выведенная из суммы 0.428571 читалась как 0.42. Точное значение остаётся
   // в состоянии qty — от него считается сумма. 1e-6 гасит float-«недолёт» (1.15→1.14).
   const fmtQty = (s) => {
     const n = Number(s)
     if (!Number.isFinite(n)) return s
-    return String(Math.floor(n * 100 + 1e-6) / 100)
+    const decimals = step === 0.1 ? 1 : step === 0.25 ? 2 : 2
+    const factor = 10 ** decimals
+    return String(Math.floor(n * factor + 1e-6) / factor)
   }
   // Порция, ВЫВЕДЕННАЯ из введённой суммы, НЕ округляется вообще — храним полную
   // точность деления, иначе сумма к оплате (linePrice × порция) уедет от набранной
@@ -75,7 +96,7 @@ export default function DishModal({ product, line, onSubmit, onClose, hideTakeaw
   const [total, setTotal] = useState(String(Math.round(initQty * (unitPrice + initModDelta))))
   const [note, setNote] = useState(line?.note ?? '')
   const [takeaway, setTakeaway] = useState(line?.takeaway ?? false)
-  if (!product) return null
+  if (!product && !line) return null
 
   // Клик по опции добавки. Одиночный выбор (max_select≤1) заменяет выбор в группе,
   // множественный — переключает с учётом лимита max_select. min/max мягкие:
@@ -114,9 +135,9 @@ export default function DishModal({ product, line, onSubmit, onClose, hideTakeaw
     setTotal(String(Math.round(q * linePrice)))
   }
 
-  // Кнопки ±1 порция: считаем от числа и приводим к аккуратному виду (2 знака).
+  // Кнопки ± порция: считаем от числа и приводим к аккуратному виду.
   const stepQty = (delta) => {
-    const nq = snapQty(qtyNum + delta)
+    const nq = snapQty(qtyNum + delta * step)
     setQty(String(nq))
     setTotal(String(Math.round(nq * linePrice)))
   }
@@ -125,8 +146,8 @@ export default function DishModal({ product, line, onSubmit, onClose, hideTakeaw
   // округление увело бы выведенную из суммы порцию (0.428571) и сумма к оплате уплыла бы.
   const normalizeQty = () => {
     if (qty === '' || !(qtyNum > 0)) {
-      setQty('0.01')
-      setTotal(String(Math.round(0.01 * linePrice)))
+      setQty(String(step))
+      setTotal(String(Math.round(step * linePrice)))
     }
   }
 
@@ -149,39 +170,98 @@ export default function DishModal({ product, line, onSubmit, onClose, hideTakeaw
     if (total === '') setTotal(String(Math.round(qtyNum * linePrice)))
   }
 
+  const fmtTime = (iso) => (iso ? new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '')
+  const addedBy = meta?.addedByName || meta?.waiterName || ''
+  const hasMeta = Boolean(addedBy || meta?.createdAt)
+
+  // Позиция, которая УЖЕ ушла в заказ (на кухню), правится только по смыслу:
+  // количество и цену не меняем (это отдельные операции на бэкенде), зато
+  // видно, кто и когда добавил, можно сменить официанта и отменить блюдо.
+  if (readOnly) {
+    const roQty = Number(line?.qty) || 0
+    const roPrice = Number(line?.price) || 0
+    const roSum = Number(line?.total) || Math.round(roQty * roPrice)
+    const mods = Array.isArray(line?.modifiers) ? line.modifiers.filter((m) => m && m.name) : []
+    return (
+      <div className="modal-overlay" onClick={onClose}>
+        <div className="modal dish-modal dish-modal--compact" onClick={(e) => e.stopPropagation()}>
+          <div className="modal__header dish-modal__head">
+            <h3>{product?.name || line?.name}</h3>
+            <button className="icon-btn" onClick={onClose}><X size={24} /></button>
+          </div>
+          <div className="dish-modal__body">
+            {hasMeta && (
+              <div className="dish-modal__meta">
+                {addedBy && <span><User size={14} /> {addedBy}</span>}
+                {meta?.createdAt && <span><Clock size={14} /> {fmtTime(meta.createdAt)}</span>}
+                {line?.takeaway && <span className="pay-order__take">{t('takeaway')}</span>}
+              </div>
+            )}
+            <div className="dish-modal__static">
+              <div><span>{t('qty')}</span><strong>{formatQty(roQty)}</strong></div>
+              <div><span>{t('price')}</span><strong>{roPrice.toLocaleString('ru-RU')} {t('currency')}</strong></div>
+              <div className="dish-modal__static-sum"><span>{t('total')}</span><strong>{roSum.toLocaleString('ru-RU')} {t('currency')}</strong></div>
+            </div>
+            {mods.length > 0 && (
+              <div className="dish-modal__static-mods">
+                {mods.map((m) => <span key={m.id || m.name}>{m.name}</span>)}
+              </div>
+            )}
+            {line?.note && <p className="dish-modal__static-note">{line.note}</p>}
+          </div>
+          <div className="dish-modal__actions">
+            {onCancelDish && (
+              <button type="button" className="btn btn--outline dish-modal__cancel" onClick={onCancelDish}>
+                <Ban size={18} /> {t('cancel_dish')}
+              </button>
+            )}
+            <button type="button" className="btn btn--primary" onClick={onClose}>{t('close')}</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal dish-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal__header">
+      <div className="modal dish-modal dish-modal--compact" onClick={(e) => e.stopPropagation()}>
+        <div className="modal__header dish-modal__head">
           <h3>{product.name}</h3>
           <button className="icon-btn" onClick={onClose}><X size={24} /></button>
         </div>
 
         <div className="dish-modal__body">
+          {/* Кто и когда добавил — компактной строкой, без отдельной карточки */}
+          {hasMeta && (
+            <div className="dish-modal__meta">
+              {addedBy && <span><User size={14} /> {addedBy}</span>}
+              {meta?.createdAt && <span><Clock size={14} /> {fmtTime(meta.createdAt)}</span>}
+            </div>
+          )}
+
           <div className="dish-modal__grid">
             <section className="dish-modal__card">
               <div className="dish-modal__card-head">
-                <label htmlFor="dish-qty">{t('qty')}</label>
+                <label htmlFor="dish-qty">{t('qty')}{isFractional && <small style={{marginLeft:6,opacity:.7}}>×{step}</small>}</label>
                 <span>× {linePrice.toLocaleString('ru-RU')} {t('currency')}</span>
               </div>
               <div className="dish-modal__control qty-stepper">
                 <button type="button" aria-label="Уменьшить порцию" onClick={() => stepQty(-1)}>
-                  <Minus size={22} />
+                  <Minus size={20} />
                 </button>
                 <input
                   id="dish-qty"
-                  type="number"
-                  step="any"
-                  min="0"
+                  type="text"
                   inputMode="decimal"
+                  data-keyboard="num"
                   className="qty-stepper__input dish-modal__number-input"
                   value={qtyFocused ? qty : fmtQty(qty)}
-                  onChange={(e) => applyQty(e.target.value)}
+                  onChange={(e) => applyQty(sanitizeDecimal(e.target.value, 3))}
                   onFocus={() => setQtyFocused(true)}
                   onBlur={() => { setQtyFocused(false); normalizeQty() }}
                 />
                 <button type="button" aria-label="Увеличить порцию" onClick={() => stepQty(1)}>
-                  <Plus size={22} />
+                  <Plus size={20} />
                 </button>
               </div>
             </section>
@@ -193,37 +273,26 @@ export default function DishModal({ product, line, onSubmit, onClose, hideTakeaw
               </div>
               <div className="dish-modal__control dish-modal__price-stepper">
                 <button type="button" aria-label="Уменьшить цену" onClick={() => stepTotal(-500)}>
-                  <Minus size={22} />
+                  <Minus size={20} />
                 </button>
                 <div className="dish-modal__price-field">
                   <input
                     id="dish-price"
-                    type="number"
-                    min="0"
-                    step="500"
+                    type="text"
                     inputMode="numeric"
+                    data-keyboard="num"
                     value={total}
-                    onChange={(e) => applyTotal(e.target.value)}
+                    onChange={(e) => applyTotal(sanitizeInt(e.target.value))}
                     onBlur={normalizeTotal}
                     className="dish-modal__price dish-modal__number-input"
                   />
                   <span>{t('currency')}</span>
                 </div>
                 <button type="button" aria-label="Увеличить цену" onClick={() => stepTotal(500)}>
-                  <Plus size={22} />
+                  <Plus size={20} />
                 </button>
               </div>
             </section>
-          </div>
-
-          <div className="dish-modal__cost-row">
-            <div>
-              <span className="dish-modal__cost-label">{t('cost_price')}</span>
-              <small>{t('cost_fixed')}</small>
-            </div>
-            <strong className="dish-modal__cost">
-              {costPrice > 0 ? `${costPrice.toLocaleString('ru-RU')} ${t('currency')}` : '—'}
-            </strong>
           </div>
 
           {/* Добавки: настроены в веб-админке, показываем только группы с show_in_pos.
@@ -262,16 +331,20 @@ export default function DishModal({ product, line, onSubmit, onClose, hideTakeaw
             </div>
           )}
 
-          {!hideTakeaway && (
-            <div className="dish-modal__option-row">
-              <div>
-                <label>{t('takeaway')}</label>
-              </div>
-              <button type="button" className={`toggle ${takeaway ? 'toggle--on' : ''}`} onClick={() => setTakeaway((v) => !v)}>
-                <span className="toggle__dot" />
+          {/* «С собой» — отдельная строка настроек (официанта позиции здесь больше нет) */}
+          <div className="dish-modal__settings">
+            {!hideTakeaway && (
+              <button
+                type="button"
+                className={`dish-modal__toggle-row ${takeaway ? 'is-on' : ''}`}
+                onClick={() => setTakeaway((v) => !v)}
+                aria-pressed={takeaway ? 'true' : 'false'}
+              >
+                <span>{t('takeaway')}</span>
+                <span className={`toggle ${takeaway ? 'toggle--on' : ''}`}><span className="toggle__dot" /></span>
               </button>
-            </div>
-          )}
+            )}
+          </div>
 
           <div className="dish-modal__note-block">
             <label htmlFor="dish-note">{t('comment')}</label>
@@ -281,12 +354,19 @@ export default function DishModal({ product, line, onSubmit, onClose, hideTakeaw
               onChange={(e) => setNote(e.target.value)}
               className="input dish-modal__note"
               placeholder={t('dish_note_ph')}
-              rows={3}
+              rows={2}
             />
           </div>
         </div>
 
         <div className="dish-modal__actions">
+          {/* Отмена блюда — только для позиции, которая уже в заказе. Причина
+              обязательна (спросит родитель) и печатается в чеке. */}
+          {onCancelDish && (
+            <button type="button" className="btn btn--outline dish-modal__cancel" onClick={onCancelDish}>
+              <Ban size={18} /> {t('cancel_dish')}
+            </button>
+          )}
           {/* price = цена порции С учётом добавок (курс, который увидит корзина);
               modifiers — снапшот выбранных опций (уходит в позицию заказа). */}
           <button className="btn btn--primary" onClick={() => onSubmit({ quantity: qtyNum, price: linePrice, note, takeaway, modifiers: Object.values(selected) })}>{t('save')}</button>

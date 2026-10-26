@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { X, History, Printer } from 'lucide-react'
+import { X, History, Printer, Undo2 } from 'lucide-react'
 import { orders, printers as printersApi } from '../shared/api'
 import { pickReceiptPrinter } from '../shared/printers'
 import { t } from '../shared/i18n'
@@ -7,7 +7,7 @@ import { toast } from './Toast'
 
 function fmtDt(iso) { return iso ? new Date(iso).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '' }
 
-export default function HistoryPanel({ branch, printerId, onClose }) {
+export default function HistoryPanel({ branch, printerId, onReopen, onClose }) {
   const TYPES = [
     { id: 'all', label: t('all') },
     { id: 'dine_in', label: t('dine_in') },
@@ -79,7 +79,11 @@ export default function HistoryPanel({ branch, printerId, onClose }) {
           ) : (
             <table className="hist-table">
               <thead>
-                <tr><th>{t('col_no')}</th><th>{t('col_type')}</th><th>{t('col_table')}</th><th>{t('col_status')}</th><th>{t('col_time')}</th></tr>
+                <tr>
+                  <th>{t('col_no')}</th><th>{t('col_type')}</th><th>{t('col_table')}</th>
+                  <th>{t('col_status')}</th><th>{t('col_time')}</th>
+                  {onReopen && <th />}
+                </tr>
               </thead>
               <tbody>
                 {shown.map((o) => (
@@ -89,6 +93,17 @@ export default function HistoryPanel({ branch, printerId, onClose }) {
                     <td>{o.table_number || '—'}</td>
                     <td><span className={`hist-status hist-status--${o.status}`}>{t.status(o.status)}</span></td>
                     <td className="hist-date">{fmtDt(o.created_at)}</td>
+                    {/* Закрытый заказ можно вернуть в работу: гость вернул блюдо —
+                        отменяем позицию с причиной, отдаём сдачу и закрываем снова. */}
+                    {onReopen && (
+                      <td>
+                        {o.status === 'completed' ? (
+                          <button type="button" className="btn btn--outline btn--sm hist-reopen" onClick={() => onReopen(o)}>
+                            <Undo2 size={16} /> {t('reopen_order')}
+                          </button>
+                        ) : null}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

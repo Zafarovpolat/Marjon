@@ -231,28 +231,32 @@ describe("SettingsPaymentMethodsPage — create & edit", () => {
     expect(payload.type).not.toBe("Карта");
   });
 
-  it("offers only Наличные and Карта in the type dropdown (no empty '-' option)", async () => {
+  it("offers Наличные, Карта and Другое in the type dropdown (no empty '-' option)", async () => {
     renderPage();
     await screen.findByText("Касса");
     fireEvent.click(screen.getByRole("button", { name: "Добавить способ оплаты" }));
     const combo = screen.getByRole("combobox", { name: "Тип" });
     fireEvent.click(combo);
-    expect(screen.getAllByRole("option").map((o) => o.textContent.trim())).toEqual(["Наличные", "Карта"]);
+    expect(screen.getAllByRole("option").map((o) => o.textContent.trim())).toEqual([
+      "Наличные", "Карта", "Другое (Uzum, Yandex…)",
+    ]);
     expect(screen.queryByRole("option", { name: "—" })).toBeNull();
     // Chevron rotation is driven by the is-open state on the select root.
     expect(combo.closest(".settings-select")).toHaveClass("is-open");
   });
 
-  it("normal edit dropdown offers exactly [Наличные, Карта]", async () => {
+  it("normal edit dropdown offers exactly [Наличные, Карта, Другое]", async () => {
     renderPage();
     await screen.findByText("Касса");
     const cardRow = screen.getByText("Банк-карта").closest("tr");
     fireEvent.click(within(cardRow).getByRole("button", { name: /Редактировать/ }));
     fireEvent.click(screen.getByRole("combobox", { name: "Тип" }));
-    expect(screen.getAllByRole("option").map((o) => o.textContent.trim())).toEqual(["Наличные", "Карта"]);
+    expect(screen.getAllByRole("option").map((o) => o.textContent.trim())).toEqual([
+      "Наличные", "Карта", "Другое (Uzum, Yandex…)",
+    ]);
   });
 
-  it("legacy edit: dropdown still shows ONLY [Наличные, Карта], raw value is a note not an option", async () => {
+  it("legacy edit: dropdown shows the canonical options, raw value is a note not an option", async () => {
     renderPage();
     await screen.findByText("Касса");
     const legacyRow = screen.getByText("Старый VIP").closest("tr");
@@ -260,7 +264,9 @@ describe("SettingsPaymentMethodsPage — create & edit", () => {
     // The unsupported stored type is surfaced as neutral info, never as an option.
     expect(screen.getByText("Текущий тип: vip_legacy")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("combobox", { name: "Тип" }));
-    expect(screen.getAllByRole("option").map((o) => o.textContent.trim())).toEqual(["Наличные", "Карта"]);
+    expect(screen.getAllByRole("option").map((o) => o.textContent.trim())).toEqual([
+      "Наличные", "Карта", "Другое (Uzum, Yandex…)",
+    ]);
     expect(screen.queryByRole("option", { name: "vip_legacy" })).toBeNull();
   });
 

@@ -14,8 +14,8 @@ from app.modules.auth.dependencies import (
 )
 from app.modules.auth.models import User
 from app.modules.pos.schemas import (
-    OrderCreate, OrderItemCreate, OrderItemWaiterUpdate, OrderResponse,
-    OrderStatusUpdate, OrderUpdate,
+    OrderCreate, OrderItemCreate, OrderItemQuantityUpdate, OrderItemWaiterUpdate, OrderResponse,
+    OrderReopen, OrderStatusUpdate, OrderUpdate,
     TerminalCreate, TerminalResponse,
     ShiftOpen, ShiftClose, ShiftResponse,
 )
@@ -81,7 +81,24 @@ async def update_order(order_id: UUID, data: OrderUpdate, user: User = Depends(r
 
 @router.patch("/orders/{order_id}/status", response_model=OrderResponse)
 async def update_order_status(order_id: UUID, data: OrderStatusUpdate, user: User = Depends(require_company_app_user), db: AsyncSession = Depends(get_db)):
-    return await OrderService(db, branch_scope=effective_branch_filter(user)).update_status(user.company_id, order_id, data, actor_id=user.id)
+    return await OrderService(db, branch_scope=effective_branch_filter(user)).update_status(
+        user.company_id, order_id, data, actor_id=user.id, user=user
+    )
+
+
+@router.post("/orders/{order_id}/reopen", response_model=OrderResponse)
+async def reopen_order(
+    order_id: UUID, data: OrderReopen | None = None,
+    user: User = Depends(require_company_app_user), db: AsyncSession = Depends(get_db),
+):
+    """Вернуть закрытый заказ в работу (гость вернул блюдо / не получил его).
+
+    Дальше кассир отменяет позицию с причиной, итог уменьшается, сдача
+    выдаётся, заказ закрывается снова — прежние платежи становятся refunded.
+    """
+    return await OrderService(db, branch_scope=effective_branch_filter(user)).reopen(
+        user.company_id, order_id, (data.reason if data else None), user
+    )
 
 
 @router.delete("/orders/{order_id}", response_model=OrderResponse)
@@ -97,6 +114,12 @@ async def add_item(order_id: UUID, data: OrderItemCreate, user: User = Depends(r
 @router.delete("/orders/{order_id}/items/{item_id}", response_model=OrderResponse)
 async def remove_item(order_id: UUID, item_id: UUID, reason: str | None = Query(None), pin: str | None = Query(None), user: User = Depends(require_company_app_user), db: AsyncSession = Depends(get_db)):
     return await OrderService(db, branch_scope=effective_branch_filter(user)).remove_item(user.company_id, order_id, item_id, reason, user, pin)
+
+
+@router.patch("/orders/{order_id}/items/{item_id}", response_model=OrderResponse)
+async def set_item_quantity(order_id: UUID, item_id: UUID, data: OrderItemQuantityUpdate, user: User = Depends(require_company_app_user), db: AsyncSession = Depends(get_db)):
+    """Плюс/минус на уже внесённой позиции: касса меняет количество до оплаты."""
+    return await OrderService(db, branch_scope=effective_branch_filter(user)).set_item_quantity(user.company_id, order_id, item_id, data.quantity, user)
 
 
 @router.post("/orders/{order_id}/items/{item_id}/move", response_model=OrderResponse)

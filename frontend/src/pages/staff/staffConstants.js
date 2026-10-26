@@ -229,6 +229,14 @@ export const monoblockSwitchFields = [
   "canApproveAttendance",
 ];
 
+// KITCHEN-01: повар (роль kitchen). В карточке — только то, что реально
+// читают гейты кухни: печать на принтер повара и печать отмены заказа.
+// Остальные тумблеры кассира повару не нужны и только путали владельца.
+export const kitchenSwitchFields = [
+  "canCookPrinter",
+  "canPrintCancel",
+];
+
 // CASHIER-PARITY-01 (Phase 1): manager + warehouse reuse the exact Cashier
 // permission matrix source (staffAccessModules below, all 50 modules, same
 // count/text/order). No role-specific curated lists: the previous
