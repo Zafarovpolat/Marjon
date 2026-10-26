@@ -391,15 +391,21 @@ export default function StaffFormModal({
                 onChange={(event) => updateForm("pin", event.target.value.replace(/\D/g, "").slice(0, 4))}
                 placeholder="4 цифры"
                 aria-invalid={saveErrorField === "pin" && saveError ? true : undefined}
-                aria-describedby="staff-pin-hint"
+                aria-describedby={
+                  editingId || !isKitchenView ? "staff-pin-hint" : undefined
+                }
               />
-              <small className="muted" id="staff-pin-hint">
-                {editingId
-                  ? "Пусто — оставить прежний PIN. Забыли код — введите новый."
-                  : isKitchenView
-                    ? "Код для входа на кухонный экран. Без PIN повар не войдёт в KDS."
-                    : "Код для входа на кассе. Можно оставить пустым."}
-              </small>
+              {/* Повару подсказку не показываем: PIN для кухни обязателен, и это
+                  проверяется при сохранении, а не мелким текстом под полем. */}
+              {editingId ? (
+                <small className="muted" id="staff-pin-hint">
+                  Пусто — оставить прежний PIN. Забыли код — введите новый.
+                </small>
+              ) : isKitchenView ? null : (
+                <small className="muted" id="staff-pin-hint">
+                  Код для входа на кассе. Можно оставить пустым.
+                </small>
+              )}
               {saveErrorField === "pin" && saveError ? (
                 <small className="staff-field-error" role="alert">{saveError}</small>
               ) : null}

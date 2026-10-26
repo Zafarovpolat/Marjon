@@ -20,6 +20,13 @@ import {
   kdsSetOrderReady,
   kdsWsUrl,
 } from "./api";
+import logo from "../assets/brand/marjon-logo.svg";
+import {
+  formatLocalPhone,
+  getLocalPhoneDigits,
+  isLocalPhoneComplete,
+  toFullPhone,
+} from "../utils/phoneMask";
 import {
   IconAlert,
   IconArrow,
@@ -343,9 +350,11 @@ function GateAside({ eyebrow, title, facts, footer }) {
   return (
     <aside className="gate__aside">
       <div className="gate__brand">
-        <span className="monogram">M</span>
+        {/* Тот же знак, что в веб-логине и сайдбаре: кухня — часть продукта,
+            а не отдельное приложение со своим логотипом. */}
+        <img src={logo} alt="" width={44} height={44} decoding="async" />
         <span className="gate__wordmark">
-          MARJON
+          Marjon
           <small>кухонный экран</small>
         </span>
       </div>
@@ -532,21 +541,39 @@ export default function KitchenApp() {
   async function handleSetupSubmit(event) {
     event.preventDefault();
     if (setupBusy) return;
-    if (!login.trim() || !password) {
+    // Поле маскированное: в состоянии только 9 локальных цифр, поэтому
+    // неполный номер отсекаем до запроса — иначе сервер ответит «неверный
+    // логин», хотя проблема лишь в двух недонабранных цифрах.
+    const branchLogin = isLocalPhoneComplete(login) ? toFullPhone(login) : login.trim();
+    if (!branchLogin || !password) {
       setSetupError("Укажите логин и пароль филиала.");
+      return;
+    }
+    if (!isLocalPhoneComplete(login)) {
+      setSetupError("Номер филиала вводится полностью: +998 90 111-22-33.");
       return;
     }
     setSetupError("");
     setSetupBusy(true);
     try {
-      await kdsConnectDevice(login, password);
+      await kdsConnectDevice(branchLogin, password);
       setPassword("");
       setBranch(getKdsBranch());
       setDeviceReady(true);
       setPinValue("");
       setPinError("");
     } catch (err) {
-      setSetupError(err?.response?.data?.detail || "Неверный логин или пароль филиала.");
+      // 401 у филиала почти всегда означает не «опечатку», а то, что у
+      // филиала вообще не задан логин/пароль (Настройки → Филиалы) — без
+      // этого подсказки владелец ищет проблему в PIN повара.
+      const detail = err?.response?.data?.detail;
+      setSetupError(
+        err?.response?.status === 401
+          ? detail
+            ? `${detail}. Логин и пароль филиала задаются в админке: Настройки → Филиалы.`
+            : "Неверный логин или пароль филиала. Проверьте их в админке: Настройки → Филиалы."
+          : detail || "Не удалось подключить экран. Проверьте связь и попробуйте ещё раз.",
+      );
     } finally {
       setSetupBusy(false);
     }
@@ -728,7 +755,9 @@ export default function KitchenApp() {
             <p className="eyebrow">Подключение</p>
             <h2 className="gate__panel-title">Экран кухни</h2>
             <p className="gate__hint">
-              Данные филиала нужны, чтобы заказы приходили именно на эту кухню.
+              Это логин и пароль <strong>филиала</strong> из карточки филиала
+              (Настройки → Филиалы), а не пароль повара. По ним экран находит свою
+              кухню; повара входят по PIN.
             </p>
           </header>
 
@@ -742,14 +771,23 @@ export default function KitchenApp() {
 
             <label className="field">
               <span className="field__label">Логин филиала</span>
-              <input
-                className="field__input"
-                type="text"
-                value={login}
-                onChange={(e) => setLogin(e.target.value)}
-                placeholder="+998 90 111-22-33"
-                autoComplete="username"
-              />
+              {/* Та же маска, что в веб-логине: код страны — статичный
+                  префикс, в поле живут только 9 локальных цифр. Раньше номер
+                  вводился сырым текстом, и «+998 90…», «998901…», «90…»
+                  давали три разных запроса. */}
+              <div className="field__phone">
+                <strong className="field__phone-prefix">+998</strong>
+                <input
+                  className="field__input"
+                  type="tel"
+                  inputMode="numeric"
+                  value={formatLocalPhone(login)}
+                  onChange={(e) => setLogin(getLocalPhoneDigits(e.target.value))}
+                  placeholder="90 111-22-33"
+                  autoComplete="tel-national"
+                  spellCheck="false"
+                />
+              </div>
             </label>
 
             <label className="field">

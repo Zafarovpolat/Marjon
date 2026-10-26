@@ -410,6 +410,15 @@ function StaffRolePage({ role = "all" }) {
         mutationLocks.release("staff-save");
         return;
       }
+      // KITCHEN-01: повару PIN обязателен — это единственный способ войти на
+      // кухонный экран. Раньше поле можно было оставить пустым, карточка
+      // сохранялась, и смена обнаруживала проблему уже у плиты.
+      if (isKitchenView && !editingId && !/^\d{4}$/.test(form.pin)) {
+        setSaveErrorField("pin");
+        setSaveError("PIN — 4 цифры: без него повар не войдёт на кухню.");
+        mutationLocks.release("staff-save");
+        return;
+      }
       setSaveError("");
       setSaveErrorField("");
       setSaving(true);
