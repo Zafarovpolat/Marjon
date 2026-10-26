@@ -17,6 +17,7 @@ export function isNavPathActive(pathname, to) {
 export const sidebarLanguages = [
   {
     code: "uz",
+    labelKey: "sidebar.uzbek",
     label: "Узбекский",
     native: "O'zbekcha",
     short: "UZ",
@@ -24,6 +25,7 @@ export const sidebarLanguages = [
   },
   {
     code: "ru",
+    labelKey: "sidebar.russian",
     label: "Русский",
     native: "Русский",
     short: "RU",
@@ -31,6 +33,7 @@ export const sidebarLanguages = [
   },
   {
     code: "en",
+    labelKey: "sidebar.english",
     label: "Английский",
     native: "English",
     short: "EN",
@@ -137,3 +140,63 @@ export const navItems = [
     ],
   },
 ];
+
+// Ключи переводов для пунктов меню — по МАРШРУТУ, а не по `key`.
+// Маршрут уникален, а `key` повторяется: `warehouse` — это и раздел «Склад»,
+// и роль «Завсклад» в «Сотрудниках». Пока в интерфейсе был только русский,
+// подписи жили прямо в массиве; теперь при смене языка меню переводится
+// целиком, а label остаётся фолбэком, если ключа в словаре нет.
+export const NAV_LABEL_KEYS = {
+  "/": "nav.dashboard",
+  "/reports": "nav.reports",
+  "/reports/z-report": "nav.z_report",
+  "/reports/orders": "nav.orders_report",
+  "/reports/waiters": "nav.waiters_report",
+  "/reports/dishes": "nav.dishes_report",
+  "/reports/tables": "nav.tables_report",
+  "/reports/cancelled-dishes": "nav.cancelled_dishes_report",
+  "/users": "nav.staff",
+  "/users/cashier": "nav.cashier",
+  "/users/waiter": "nav.waiter",
+  "/users/kitchen": "nav.cook",
+  "/users/monoblock": "nav.monoblock",
+  "/users/manager": "nav.manager",
+  "/users/warehouse": "nav.warehouse_keeper",
+  "/users/login-history": "nav.login_history",
+  "/users/attendance": "nav.attendance",
+  "/nomenclature": "nav.menu",
+  "/nomenclature/dish-categories": "nav.dish_categories",
+  "/nomenclature/dishes": "nav.dishes",
+  "/nomenclature/sales-categories": "nav.sale_categories",
+  "/nomenclature/sales": "nav.goods",
+  "/nomenclature/menu": "nav.sale",
+  "/nomenclature/stop-list": "nav.stop_list",
+  "/warehouse": "nav.warehouse",
+  "/nomenclature/raw-categories": "nav.raw_categories",
+  "/nomenclature/raw-materials": "nav.raw_materials",
+  "/stock-report": "nav.stock_report",
+  "/stock-report/incoming-journal": "nav.incoming_journal",
+  "/stock-report/incoming": "nav.incoming",
+  "/stock-report/outgoing": "nav.outgoing",
+  "/stock-report/stock": "nav.stock",
+  "/stock-report/inventory": "nav.inventory",
+  "/stock-report/waste": "nav.waste",
+  "/finance": "nav.finance",
+  "/finance/transactions": "nav.transactions",
+  "/finance/income-categories": "nav.income_categories",
+  "/finance/expense-categories": "nav.expense_categories",
+  "/finance/debtors-creditors": "nav.debtors_creditors",
+  "/settings": "nav.settings",
+  "/settings/clients": "nav.clients",
+  "/settings/branches": "nav.branches",
+  "/settings/places": "nav.places",
+  "/settings/payment-methods": "nav.payment_methods",
+  "/settings/units": "nav.units",
+  "/settings/printers": "nav.printer_settings",
+  "/settings/receipt": "nav.receipt_settings",
+  "/settings/kitchen-receipt": "nav.kitchen_receipt_settings",
+};
+
+export function navLabelKey(to) {
+  return NAV_LABEL_KEYS[String(to || "")] || "";
+}

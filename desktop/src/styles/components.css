@@ -387,13 +387,34 @@ body.vkb-open .login-card {
   text-align: center;
   margin-bottom: var(--spacing-xl);
 }
+/* Знак бренда на экране входа — тот же SVG, что в веб-админке и в шапке
+   десктопа. Карточка входа белая, поэтому плитку под знаком не рисуем:
+   знак ложится прямо на фон, как в веб-логине. */
 .login-card__logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
   font-family: var(--font-display);
   font-size: var(--text-4xl);
   font-weight: 700;
   color: var(--color-brand);
   letter-spacing: -0.5px;
 }
+.login-card__logo-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+}
+.login-card__logo-mark img {
+  display: block;
+  width: 44px;
+  height: 44px;
+}
+.login-card__logo-text { line-height: 1; }
 .login-card__subtitle {
   color: var(--color-text-muted);
   font-size: var(--text-md);
@@ -3209,12 +3230,15 @@ body.vkb-open .login-card {
   text-align: center;
 }
 .org-screen__brand { display: flex; align-items: center; gap: 14px; margin-bottom: var(--spacing-md); }
+/* Знак бренда на тёмном фоне (фото зала): белая плитка, иначе тёмно-синий
+   терминал логотипа сливается с фотографией. */
 .org-screen__mark {
   width: 56px; height: 56px; display: grid; place-items: center;
-  border-radius: 16px; background: var(--color-brand); color: #fff;
+  border-radius: 16px; background: #fff; color: #fff;
   font-family: var(--font-display); font-weight: 700; font-size: 28px;
   box-shadow: 0 8px 28px var(--color-brand-glow);
 }
+.org-screen__mark img { display: block; width: 44px; height: 44px; }
 .org-screen__names { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
 .org-screen__org { font-family: var(--font-display); font-size: 26px; font-weight: 700; color: #fff; letter-spacing: 0.02em; }
 .org-screen__branch { font-size: 15px; color: rgba(255, 255, 255, 0.7); }
@@ -4211,11 +4235,21 @@ body.vkb-lift .cashier-cart__items { min-height: 140px; }
   font-size: var(--text-lg); font-weight: 700; color: var(--color-text-primary);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;
 }
+/* Экран оплаты: скроллится ТОЛЬКО список блюд. Шапка, способы оплаты и
+   нижняя панель всегда на месте — кассир не ищет кнопку «Закрыть заказ»
+   после прокрутки длинного чека. */
 .pay-screen__body {
-  flex: 1; min-height: 0; overflow-y: auto;
+  flex: 1; min-height: 0; overflow: hidden;
   padding: 14px 18px;
   display: flex; flex-direction: column; gap: var(--spacing-md);
 }
+/* Счёт — единственная прокручиваемая область экрана. */
+.pay-bill {
+  flex: 1 1 auto; min-height: 96px; overflow-y: auto;
+  overscroll-behavior: contain;
+}
+/* Экран «в долг» — обычная форма: там скроллится всё тело. */
+.pay-screen__body--form { overflow-y: auto; }
 .pay-screen__foot {
   display: flex; flex-direction: column; gap: 10px;
   flex: 0 0 auto;
@@ -4223,10 +4257,13 @@ body.vkb-lift .cashier-cart__items { min-height: 140px; }
   border-top: 1px solid var(--color-border-light);
   background: var(--color-surface);
 }
-.pay-screen__tools {
-  display: flex; flex-direction: column; gap: 10px;
+/* Одна строка: скидка · смена официанта · полученная сумма · смена стола */
+.pay-screen__controls {
+  display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap;
 }
-.pay-screen__tool { position: relative; display: flex; align-items: center; min-width: 0; }
+.pay-screen__control { flex: 1 1 0; min-width: 180px; position: relative; }
+.pay-screen__control--narrow { flex: 0 0 auto; min-width: 0; }
+.pay-screen__reassign { min-height: 48px; white-space: nowrap; }
 /* Скидка — поле + кнопка «Применить» в одной строке */
 .pay-dialog__disc-row {
   display: flex; align-items: center; gap: 6px; flex: 1;
@@ -4253,12 +4290,25 @@ body.vkb-lift .cashier-cart__items { min-height: 140px; }
 }
 .pay-total-static--tap:hover { background: var(--color-surface-hover); }
 .pay-total-static--tap:active { background: var(--color-brand-bg); }
-/* Кнопки действий — две равные колонки */
-.pay-screen__actions { display: flex; flex-direction: column; gap: 8px; }
+/* Три главных действия — одной строкой: печать · закрыть · отменить.
+   Раньше это были две строки по две кнопки, и «Закрыть заказ» уезжала
+   вниз, под скролл, на низких экранах. */
+.pay-screen__actions { display: flex; gap: 8px; }
+.pay-screen__actions .btn--eq { flex: 1 1 0; justify-content: center; white-space: nowrap; }
 .pay-screen__row { display: flex; gap: 8px; }
 .pay-screen__row .btn--eq { flex: 1 1 0; justify-content: center; white-space: nowrap; }
 /* Сумма к получению — одно поле на любой способ оплаты */
 .pay-amount { display: flex; flex-direction: column; gap: 8px; }
+/* Компактный вариант: в общей строке со скидкой и официантом */
+.pay-amount--inline { gap: 4px; }
+.pay-amount--inline .pay-amount__field { min-height: 48px; }
+.pay-amount--inline .pay-amount__input {
+  height: auto; padding: 0; border: 0; background: transparent;
+  font-family: inherit; font-size: var(--text-base); font-weight: 700;
+  text-align: right; box-shadow: none;
+}
+.pay-amount--inline .pay-amount__input:focus { border: 0; box-shadow: none; }
+.pay-amount--inline .pay-amount__hint { font-size: var(--text-xs); }
 .pay-amount__label {
   font-size: var(--text-sm); font-weight: 600; color: var(--color-text-secondary);
 }
@@ -4322,7 +4372,8 @@ body.vkb-lift .cashier-cart__items { min-height: 140px; }
 
 /* В полноэкранной оплате список официантов открывается ВВЕРХ,
    чтобы не уходил за низ экрана */
-.pay-screen__tool .wpick__list { top: auto; bottom: calc(100% + 6px); }
+.pay-screen__tool .wpick__list,
+.pay-screen__control .wpick__list { top: auto; bottom: calc(100% + 6px); }
 
 /* Счёт: строки как в чеке — количество, блюдо, сумма. Без плиток и рамок. */
 .pay-bill { display: flex; flex-direction: column; }

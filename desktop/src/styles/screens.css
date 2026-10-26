@@ -158,7 +158,20 @@
   text-transform: uppercase;
   color: var(--color-text-muted);
 }
-.ws-side__nav { display: flex; flex-direction: column; gap: 4px; }
+/* Список категорий/локаций прокручивается сам: у компании легко набегает
+   20+ категорий, и раньше хвост просто обрезался — до нижних категорий
+   нельзя было добраться вообще. */
+.ws-side__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  padding-right: 2px;
+}
 .zone {
   box-sizing: border-box;
   display: grid;

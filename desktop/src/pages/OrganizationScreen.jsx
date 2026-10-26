@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Settings, LogIn, Phone, LogOut } from 'lucide-react'
 import { t } from '../shared/i18n'
+import logoUrl from '../assets/logo.svg'
 
 /**
  * OrganizationScreen — экран организации (домашний, до входа сотрудника).
@@ -33,7 +34,9 @@ export default function OrganizationScreen({ orgName, branchName, supportPhone, 
 
       <div className="org-screen__content">
         <div className="org-screen__brand">
-          <div className="org-screen__mark">M</div>
+          <div className="org-screen__mark">
+            <img src={logoUrl} alt="" aria-hidden="true" />
+          </div>
           <div className="org-screen__names">
             <span className="org-screen__org">{orgName || 'MARJON'}</span>
             {branchName && <span className="org-screen__branch">{branchName}</span>}
@@ -51,7 +54,7 @@ export default function OrganizationScreen({ orgName, branchName, supportPhone, 
 
       <div className="org-screen__support">
         <Phone size={15} />
-        {t('support')}: {supportPhone || '+998 (77) 343 00 19'}
+        {t('support')}: {supportPhone || '+998 (90) 007-87-79'}
       </div>
     </div>
   )

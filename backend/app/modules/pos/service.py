@@ -393,6 +393,10 @@ class OrderService:
             # DEBT-ROLE-01: закрытие БЕЗ полной оплаты = выдача в долг. Официанту
             # это запрещено всегда (в вебе такого переключателя нет и не будет).
             await self._ensure_debt_allowed(company_id, order, user, actor_id)
+            # DEBT-CLIENT-01: должник должен появиться в справочнике клиентов
+            # (дашборд → Настройки → Клиенты) и в отчёте по долгам. До этого
+            # имя и телефон из экрана «В долг» никуда не сохранялись.
+            await self._register_debtor(company_id, order, data)
 
         order.status = target
         if target == "cancelled":
@@ -464,6 +468,99 @@ class OrderService:
             raise ForbiddenError(
                 "Официант не может закрыть заказ в долг — вызовите кассира"
             )
+
+    async def _paid_total(self, company_id: UUID, order_id: UUID) -> Decimal:
+        """Сколько денег по заказу реально получено (только completed-платежи)."""
+        from app.modules.payments.models import Payment
+
+        paid = await self.db.scalar(
+            select(func.coalesce(func.sum(Payment.amount), 0)).where(
+                Payment.company_id == company_id,
+                Payment.order_id == order_id,
+                Payment.status == "completed",
+            )
+        )
+        return Decimal(str(paid or 0))
+
+    async def _register_debtor(
+        self, company_id: UUID, order: Order, data: OrderStatusUpdate
+    ) -> None:
+        """DEBT-CLIENT-01: завести/обновить клиента-должника при закрытии «в долг».
+
+        Экран оплаты десктопа спрашивает имя и телефон должника, но до этой
+        правки они попадали только в комментарий к заказу — в дашборде
+        (Настройки → Клиенты) клиент не появлялся, а отчёт по долгам его не
+        видел. Пишем в тот же справочник, что читает дашборд (контрагенты,
+        тип «клиент»), и увеличиваем его баланс на непокрытую часть чека.
+
+        Ничего не делаем, если чек закрыт полностью, заказ уже был возвращён в
+        работу (там долг не возникает) или клиент не назван: молчаливое
+        создание «клиента без имени» только засоряет справочник.
+        """
+        name = (data.client_name or "").strip()
+        phone = (data.client_phone or "").strip()
+        if not name and not phone:
+            return
+        if order.reopened_at is not None:
+            return
+        total = Decimal(str(order.total_amount or 0))
+        debt = total - await self._paid_total(company_id, order.id)
+        if debt <= 0:
+            return
+
+        from app.modules.finance.models import Counterparty
+
+        scope = (
+            Counterparty.company_id == company_id,
+            Counterparty.scope_kind == "company",
+            Counterparty.organization_id.is_(None),
+            Counterparty.deleted_at.is_(None),
+        )
+        existing = None
+        if phone:
+            existing = (
+                await self.db.execute(
+                    select(Counterparty).where(*scope, Counterparty.phone == phone)
+                )
+            ).scalars().first()
+        if existing is None and name:
+            existing = (
+                await self.db.execute(
+                    select(Counterparty).where(
+                        *scope, func.lower(Counterparty.full_name) == name.lower()
+                    )
+                )
+            ).scalars().first()
+
+        if existing is not None:
+            existing.balance = Decimal(str(existing.balance or 0)) + debt
+            if name and not (existing.full_name or "").strip():
+                existing.full_name = name
+            if phone and not (existing.phone or "").strip():
+                existing.phone = phone
+            self.db.add(existing)
+        else:
+            self.db.add(
+                Counterparty(
+                    company_id=company_id,
+                    organization_id=None,
+                    scope_kind="company",
+                    full_name=name or phone,
+                    phone=phone or None,
+                    type="client",
+                    balance=debt,
+                )
+            )
+        await self.db.flush()
+        try:
+            await AuditService(self.db).log(
+                company_id, None, "order.debt_client", "order",
+                entity_id=order.id,
+                new_data={"client_name": name or None, "client_phone": phone or None,
+                          "debt": str(debt)},
+            )
+        except Exception:
+            pass
 
     async def reopen(
         self, company_id: UUID, order_id: UUID,

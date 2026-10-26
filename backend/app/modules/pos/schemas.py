@@ -57,6 +57,11 @@ class OrderUpdate(BaseSchema):
 
 class OrderStatusUpdate(BaseSchema):
     status: Literal["new", "accepted", "cooking", "ready", "completed", "cancelled"]
+    # DEBT-CLIENT-01: закрытие «в долг» с новым клиентом. Десктоп спрашивает имя
+    # и телефон прямо на экране долга; без этих полей должник жил только в
+    # комментарии к заказу и не появлялся ни в «Клиентах», ни в отчёте по долгам.
+    client_name: str | None = None
+    client_phone: str | None = None
 
 
 class OrderReopen(BaseSchema):

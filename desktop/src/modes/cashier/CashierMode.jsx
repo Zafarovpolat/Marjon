@@ -145,15 +145,41 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
 
   useEffect(() => {
     loadFloor()
-    const id = setInterval(loadFloor, 20000)
-    return () => clearInterval(id)
+    // MOBILE-ORDER-SYNC: заказ, принятый официантом в мобилке, должен появляться
+    // на кассе сразу. Раньше доска обновлялась раз в 20 с — кассир успевал
+    // решить, что заказ «не пришёл» (и заводил дубль).
+    const id = setInterval(loadFloor, 5000)
+    // Возврат к терминалу (переключили окно, сняли блокировку) — сразу свежие данные.
+    const onFocus = () => loadFloor()
+    const onVisible = () => { if (!document.hidden) loadFloor() }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearInterval(id)
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [loadFloor])
 
   useEffect(() => {
     Promise.all([menu.categories().catch(() => []), menu.products().catch(() => []), printersApi.list().catch(() => [])])
       .then(([cats, prods, pl]) => {
-        setCategories(cats.items ?? cats ?? [])
-        setProducts(prods.items ?? prods ?? [])
+        const allCats = cats.items ?? cats ?? []
+        const allProds = prods.items ?? prods ?? []
+        // CATALOG-SCOPE-01: в списке категорий кассы были и складские
+        // («Овощи», «Мясо», «Мука»…) — кассир видел пустые полки, которых в
+        // продаже нет. Оставляем только то, что реально продаётся: категории
+        // с флагом «в меню» ИЛИ те, где есть хотя бы одно блюдо/товар
+        // (в старых компаниях флаг не выставлен, но блюда в категории есть).
+        const sellableTypes = new Set(['dish', 'sale'])
+        const sellableCats = new Set(
+          allProds
+            .filter((p) => sellableTypes.has(String(p.product_type || 'dish')))
+            .map((p) => String(p.category_id || ''))
+            .filter(Boolean)
+        )
+        setCategories(allCats.filter((c) => c.show_in_menu === true || sellableCats.has(String(c.id))))
+        setProducts(allProds.filter((p) => sellableTypes.has(String(p.product_type || 'dish'))))
         const map = {}; (pl.items ?? pl ?? []).forEach((p) => { map[p.id] = p }); setPrinterMap(map)
       })
     companiesApi.profile().then((p) => setOrderTypes(p?.order_types || null)).catch(() => {})
@@ -340,7 +366,13 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
     try {
       if (method === 'debt') {
         // Existing debt flow is NOT a fully paid receipt and stays out of paid analytics.
-        await orders.updateStatus(order.id, 'completed')
+        // DEBT-CLIENT-01: имя/телефон должника уходят на сервер — он заводит
+        // клиента в справочнике (дашборд → Настройки → Клиенты) и в отчёте
+        // по долгам. Раньше эти поля терялись.
+        await orders.updateStatus(order.id, 'completed', {
+          ...(detail?.client_name ? { client_name: detail.client_name } : {}),
+          ...(detail?.client_phone ? { client_phone: detail.client_phone } : {}),
+        })
       } else {
         await payments.confirmOrder(order, method, detail)
       }
@@ -348,13 +380,15 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
         const comment = `Долг: заказ #${order.order_number ?? ''}, получено ${fmt(detail.cash)}, остаток ${fmt(detail.debt)}${detail.client_name ? `, клиент: ${detail.client_name}` : ''}${detail.client_phone ? `, тел: ${detail.client_phone}` : ''}`
         try { await financeApi.addIncome({ amount: Number(detail.cash), comment }) } catch { /* тихо: нет прав или офлайн */ }
       }
-      // Открываем денежный ящик (best-effort: ошибка не мешает закрытию заказа)
-      try {
-        const pr = receiptPrinter()
-        if (pr?.ip_address) {
-          await window.electron.openDrawer({ ip: pr.ip_address, port: pr.port })
-        }
-      } catch { /* тихо: ящик может не быть подключён */ }
+      // Денежный ящик открываем ПОСЛЕ возврата на зал и без await: принтер,
+      // который не отвечает, держит сокет до 5 с (printRaw timeout) — именно
+      // эта пауза и читалась как «закрытие заказа думает 5–6 секунд».
+      const pr = receiptPrinter()
+      if (pr?.ip_address) {
+        Promise.resolve()
+          .then(() => window.electron?.openDrawer?.({ ip: pr.ip_address, port: pr.port }))
+          .catch(() => { /* ящик может не быть подключён */ })
+      }
       // Возврат в закрытый заказ: итог уменьшился — сдачу отдаём клиенту.
       toast(refund > 0 ? `${t('refund_done')}: ${fmt(refund)} ${t('currency')}` : t('order_closed'))
       setPayExisting(null)

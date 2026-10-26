@@ -115,7 +115,18 @@ function DishPhotoCell({ row, uploading, onPick, onPreview }) {
         {...(hasPhoto ? { "aria-haspopup": "dialog" } : null)}
       >
         {row.photo ? (
-          <img className="dish-photo" src={row.photo} alt={row.name} decoding="async" />
+          // loading=lazy + размеры: без них браузер декодировал все фото
+          // каталога сразу, и при прокрутке к концу списка кадры проваливались
+          // (декодирование картинок шло в том же кадре, что и скролл).
+          <img
+            className="dish-photo"
+            src={row.photo}
+            alt={row.name}
+            width={42}
+            height={42}
+            loading="lazy"
+            decoding="async"
+          />
         ) : (
           <span className="dish-photo-placeholder"><Icon name="bi-image" /></span>
         )}

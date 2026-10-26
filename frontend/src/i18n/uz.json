@@ -50,7 +50,11 @@
     "profile_settings": "Profil sozlamalari",
     "printer_settings": "Printer sozlamalari",
     "receipt_settings": "Chek sozlamalari",
-    "kitchen_receipt_settings": "Oshpaz cheki sozlamalari"
+    "kitchen_receipt_settings": "Oshpaz cheki sozlamalari",
+    "sale_categories": "Tovar kategoriyasi",
+    "goods": "Tovarlar",
+    "stop_list": "Stop-list",
+    "branches": "Filiallar"
   },
   "sidebar": {
     "open_menu": "Menyuni ochish",
@@ -62,7 +66,11 @@
     "english": "Inglizcha",
     "logout": "Chiqish",
     "expand": "Kengaytirish",
-    "more": "Ko'proq"
+    "more": "Ko'proq",
+    "support": "Tex. qo‘llab-quvvatlash",
+    "store": "Do‘kon",
+    "logout_action": "Chiqish",
+    "mobile_navigation": "Mobil navigatsiya"
   },
   "topbar": {
     "date": "Sana",

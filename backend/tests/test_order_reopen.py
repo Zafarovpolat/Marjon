@@ -281,3 +281,62 @@ async def test_custom_payment_method_is_stored_verbatim(client, db_engine):
     )
     assert listed.status_code == 200
     assert [p["method"] for p in listed.json()] == ["Uzum"]
+
+
+# ── DEBT-CLIENT-01: должник попадает в справочник клиентов ──────────────────
+
+
+@pytest.mark.asyncio
+async def test_debt_close_registers_client_in_dashboard_directory(client, db_engine):
+    """Закрытие «в долг» с именем и телефоном создаёт клиента в справочнике.
+
+    Дашборд (Настройки → Клиенты) читает контрагентов типа «клиент», поэтому
+    должник должен появиться именно там — иначе кассир вводил имя и телефон
+    в пустоту, а долг нигде не числился.
+    """
+    ctx = await _setup(client, db_engine, slug="debt-client")
+    order = await _create_order(client, ctx)
+
+    resp = await client.patch(
+        f"/pos/orders/{order['id']}/status",
+        headers=ctx["owner_headers"],
+        json={
+            "status": "completed",
+            "client_name": "Азиз Каримов",
+            "client_phone": "+998901234567",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+    listed = await client.get(
+        "/finance/counterparties", headers=ctx["owner_headers"],
+        params={"type": "client", "size": 50},
+    )
+    assert listed.status_code == 200, listed.text
+    rows = listed.json()["items"] if isinstance(listed.json(), dict) else listed.json()
+    clients = [row for row in rows if row.get("full_name") == "Азиз Каримов"]
+    assert clients, f"клиент-должник не найден в справочнике: {rows}"
+    assert clients[0]["phone"] == "+998901234567"
+    assert Decimal(str(clients[0]["balance"])) == Decimal(str(order["total_amount"]))
+
+
+@pytest.mark.asyncio
+async def test_debt_close_without_client_keeps_directory_clean(client, db_engine):
+    """Без имени и телефона справочник не засоряется «клиентом без имени»."""
+    ctx = await _setup(client, db_engine, slug="debt-anon")
+    order = await _create_order(client, ctx)
+
+    resp = await client.patch(
+        f"/pos/orders/{order['id']}/status",
+        headers=ctx["owner_headers"],
+        json={"status": "completed"},
+    )
+    assert resp.status_code == 200, resp.text
+
+    listed = await client.get(
+        "/finance/counterparties", headers=ctx["owner_headers"],
+        params={"type": "client", "size": 50},
+    )
+    assert listed.status_code == 200, listed.text
+    rows = listed.json()["items"] if isinstance(listed.json(), dict) else listed.json()
+    assert rows == []
