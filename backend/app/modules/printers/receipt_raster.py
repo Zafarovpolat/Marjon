@@ -378,6 +378,10 @@ def render_customer_receipt_raster(data: ReceiptData, template: dict | None, pap
                 boundary("financial")
                 canvas.text_row("Налог", f"{data.tax:,.0f}", font, "left", gap(8))
 
+        if not en("restaurantName"):
+            for contact in data.delivery_contacts():
+                boundary("header")
+                canvas.line_of_text(contact, _load_font("regular", _SIZE_PT["standard"]), "center", gap(8))
         for block in ordered_blocks:
             if block in ("discount", "serviceFee", "vat"):
                 continue
@@ -401,6 +405,8 @@ def render_customer_receipt_raster(data: ReceiptData, template: dict | None, pap
                 font, align = _font_for(template, helper, "restaurantName")
                 name = str(template.get("restaurantName") or data.company_name)
                 canvas.line_of_text(name, font, align, gap(14))
+                for contact in data.delivery_contacts():
+                    canvas.line_of_text(contact, _load_font("regular", _SIZE_PT["standard"]), "center", gap(8))
             elif block == "orderNumber":
                 boundary("info")
                 font, align = _font_for(template, helper, "orderNumber")

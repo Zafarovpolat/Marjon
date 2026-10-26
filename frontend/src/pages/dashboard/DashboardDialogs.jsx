@@ -78,6 +78,8 @@ function RevenueProductsTable({ report }) {
     maximumFractionDigits: 2,
   }).format(Number(value))} UZS`;
   const quantity = (value) => new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 3 }).format(Number(value));
+  const totalRow = report.rows.length > 0 && !report.unavailable ? <tr className="revenue-products__total"><th scope="row" colSpan={4}>Итого</th>
+    {amounts.map(([key]) => <td key={key}>{money(report[key])}</td>)}</tr> : null;
   return (
     <div className="revenue-products">
       <div className="revenue-products__scroll" tabIndex={0} role="region" aria-label="Продажи оплаченных блюд">
@@ -85,10 +87,9 @@ function RevenueProductsTable({ report }) {
           <thead><tr>
             <th scope="col">№</th><th scope="col">Блюдо / товар</th><th scope="col">Категория</th>
             <th scope="col">Продано</th>{amounts.map(([key, label]) => <th key={key} scope="col">{label}</th>)}
-          </tr></thead>
+          </tr>{!report.incomeLast ? totalRow : null}</thead>
           <tbody>
-          {report.rows.length > 0 && !report.unavailable ? <tr className="revenue-products__total"><th scope="row" colSpan={4}>Итого</th>
-            {amounts.map(([key]) => <td key={key}>{money(report[key])}</td>)}</tr> : null}
+          {report.incomeLast ? totalRow : null}
           {report.rows.length ? report.rows.map((row, index) => (
             <tr key={row.product_id}>
               <td>{index + 1}</td><td>{row.name}</td><td><span className="revenue-products__category">{row.category}</span></td>

@@ -639,6 +639,8 @@ class PrinterService:
             staff_label=await self._resolve_staff_label(company_id, order),
             receipt_staff=receipt_staff,
             cancelled=cancelled_lines,
+            customer_phone=order.customer_phone,
+            customer_address=order.customer_address,
         )
 
     async def _build_kitchen_data(self, company_id: UUID, order: Order) -> KitchenTicketData:

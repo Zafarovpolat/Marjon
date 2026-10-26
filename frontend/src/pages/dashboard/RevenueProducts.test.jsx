@@ -2,6 +2,8 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { KpiInfoDialog } from "./DashboardDialogs";
 import { buildRealKpis } from "./analyticsData";
+import { readFileSync } from "node:fs";
+const revenueStyles = readFileSync(`${process.cwd()}/src/pages/dashboard/revenueProducts.css`, "utf8");
 
 const summary = {
   metric_basis: "completed_income_minus_snapshot_cogs", date_from: "2026-10-12", date_to: "2026-10-17",
@@ -22,6 +24,21 @@ function show(data, card = CARD.revenue) {
   return screen.getByRole("table");
 }
 describe("Revenue product detail", () => {
+  it("keeps totals outside the scrolling dish list", () => {
+    show(summary);
+    const scroll = screen.getByRole("region", { name: "Продажи оплаченных блюд" });
+    expect(scroll.querySelector("thead > .revenue-products__total")).not.toBeNull();
+    expect(scroll.querySelector("tbody .revenue-products__total")).toBeNull();
+    expect(revenueStyles).toMatch(/revenue-products tbody \{[^}]*overflow-y: auto/);
+  });
+  it("sizes the profit panel to its rows and disables hover shadows", () => {
+    const panel = revenueStyles.match(/body\.dashboard-body \.kpi-info-window\.kpi-info-window--profit-detail \{([^}]+)\}/)[1];
+    expect(panel).toContain("height: auto");
+    expect(panel).toContain("max-height: calc(100dvh - 32px)");
+    expect(revenueStyles).not.toContain("height: min(980px");
+    expect(revenueStyles).toMatch(/profit-detail:hover,[\s\S]*?box-shadow: none !important/);
+    expect(revenueStyles).toMatch(/profit-detail tr:hover \{\s*box-shadow: none !important/);
+  });
   it("places the profit title and centered amount in one compact heading", () => {
     show(summary);
     const dialog = screen.getByRole("dialog");
@@ -90,7 +107,7 @@ describe("Revenue product detail", () => {
     expect(within(table).getByText(/0[.,]333/)).toBeTruthy();
     expect(within(table).getAllByText("220,01 UZS")).toHaveLength(2);
     expect(within(table).getByText("Итого")).toBeTruthy();
-    expect(table.querySelector("tbody tr:first-child")).toHaveClass("revenue-products__total");
+    expect(table.querySelector("thead tr:last-child")).toHaveClass("revenue-products__total");
     expect(table.querySelector("tfoot")).toBeNull();
     expect(within(table).queryByText("Средняя цена")).toBeNull();
     expect(screen.getByText("12.10.2026 – 17.10.2026")).toBeTruthy();
