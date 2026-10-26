@@ -4,7 +4,7 @@
   overflow-y: auto;
 }
 
-/* Profit detail: one compact heading row and the remaining height for rows.
+/* Profit detail: compact heading and content-sized rows, bounded by the viewport.
    Other KPI dialogs retain their existing layout and table sizing. */
 body.dashboard-body .kpi-info-backdrop.kpi-info-backdrop--profit-detail {
   padding: 16px;
@@ -12,12 +12,20 @@ body.dashboard-body .kpi-info-backdrop.kpi-info-backdrop--profit-detail {
 }
 body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail {
   box-sizing: border-box;
-  height: min(980px, calc(100dvh - 32px));
+  height: auto;
+  min-height: 0;
   max-height: calc(100dvh - 32px);
   padding: 18px 22px 20px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail,
+body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail:hover,
+body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail .revenue-products:hover,
+body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail .revenue-products__scroll:hover,
+body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail tr:hover {
+  box-shadow: none !important;
 }
 body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail .kpi-info-window__head {
   flex: none;
@@ -58,17 +66,62 @@ body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail .kpi-info-wi
   justify-self: end;
 }
 body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail > .revenue-products {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
   margin-top: 12px;
 }
 body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail .revenue-products__scroll {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-height: 0;
   max-height: none;
 }
+/* The header and total are outside the vertically scrolling tbody. */
+body.dashboard-body .kpi-info-window--profit-detail .revenue-products__scroll {
+  display: flex;
+  overflow-y: hidden;
+}
+body.dashboard-body .kpi-info-window--profit-detail .revenue-products table {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+body.dashboard-body .kpi-info-window--profit-detail .revenue-products thead {
+  display: block;
+  width: 100%;
+  flex: none;
+  padding-right: 0;
+  overflow-y: hidden;
+  scrollbar-gutter: stable;
+}
+body.dashboard-body .kpi-info-window--profit-detail .revenue-products tbody {
+  display: block;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+body.dashboard-body .kpi-info-window--profit-detail .revenue-products tbody tr,
+body.dashboard-body .kpi-info-window--profit-detail .revenue-products thead tr {
+  display: table;
+  table-layout: fixed;
+  width: 100%;
+}
+body.dashboard-body .kpi-info-window--profit-detail .revenue-products th,
+body.dashboard-body .kpi-info-window--profit-detail .revenue-products td { box-sizing: border-box; }
+body.dashboard-body .kpi-info-window--profit-detail .revenue-products thead th {
+  position: static;
+}
+body.dashboard-body .kpi-info-window--profit-detail .revenue-products__total > * {
+  background: #f4f7fc;
+}
+body.dashboard-body .kpi-info-window--profit-detail .revenue-products tr:not(.revenue-products__total) > :nth-child(1) { width: 6%; }
+body.dashboard-body .kpi-info-window--profit-detail .revenue-products tr:not(.revenue-products__total) > :nth-child(2) { width: 18%; }
+body.dashboard-body .kpi-info-window--profit-detail .revenue-products tr:not(.revenue-products__total) > :nth-child(3) { width: 22%; }
+body.dashboard-body .kpi-info-window--profit-detail .revenue-products tr:not(.revenue-products__total) > :nth-child(4) { width: 12%; }
+body.dashboard-body .kpi-info-window--profit-detail .revenue-products tr:not(.revenue-products__total) > :nth-child(n+5) { width: 21%; }
+body.dashboard-body .kpi-info-window--profit-detail .revenue-products__total > th { width: 58%; text-transform: none; font-size: 13px; color: #18314f; }
+body.dashboard-body .kpi-info-window--profit-detail .revenue-products__total > td { width: 21%; }
 @media (max-width: 640px) {
   body.dashboard-body .kpi-info-window.kpi-info-window--profit-detail {
     padding: 14px;

@@ -14,6 +14,29 @@ from tests.test_receipt_block_styles import _receipt
 from tests.test_kitchen_ticket_sums import _ticket
 
 
+@pytest.mark.parametrize("order_type", ["delivery", "dine_in", "takeaway"])
+@pytest.mark.parametrize("name_enabled", [True, False])
+def test_delivery_contacts_centered_in_text_and_raster(order_type, name_enabled):
+    data = replace(_receipt(), order_type=order_type, customer_phone="+998 90 123 45 67", customer_address="Улица Навои, дом 12")
+    template = {"enabled": {"restaurantName": name_enabled, "address": False, "phone": False}}
+    raw = EscPosFormatter(80).format_receipt(data, template).decode("cp866")
+    with patch.object(_RasterCanvas, "line_of_text", autospec=True) as lines:
+        assert render_customer_receipt_raster(data, template, 80)
+    for contact in (data.customer_address, data.customer_phone):
+        matching = [call for call in lines.call_args_list if call.args[1] == contact]
+        if order_type == "delivery":
+            assert raw.count(contact) == 1
+            assert len(matching) == 1
+            assert matching[0].args[3] == "center"
+        else:
+            assert contact not in raw
+            assert not matching
+
+
+def test_empty_delivery_contacts_are_omitted():
+    assert replace(_receipt(), order_type="delivery", customer_phone=" ", customer_address=None).delivery_contacts() == []
+
+
 def test_merged_summary_supports_explicit_print_time_and_resets_separator():
     from zoneinfo import ZoneInfo
     moment = datetime(2026, 10, 24, 0, 5, tzinfo=ZoneInfo("Asia/Tashkent"))

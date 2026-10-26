@@ -141,6 +141,13 @@ class ReceiptData:
     # Отменённые позиции с причиной: печатаются в чеке всегда (гость должен
     # видеть, что блюдо отменено и почему). Пустой список — ничего не печатаем.
     cancelled: list[ReceiptLine] = field(default_factory=list)
+    customer_phone: str | None = None
+    customer_address: str | None = None
+
+    def delivery_contacts(self) -> list[str]:
+        if self.order_type != "delivery":
+            return []
+        return [str(value).strip() for value in (self.customer_address, self.customer_phone) if value and str(value).strip()]
 
 
 @dataclass
@@ -718,6 +725,9 @@ class EscPosFormatter:
             return bytes(buf)
 
         summary_done = False
+        if not en("restaurantName"):
+            for contact in data.delivery_contacts():
+                push("header", self._wrapped_centered(contact))
         for block in ordered_blocks:
             # The subtotal/discount/service/vat unit renders once, anchored
             # to "total" — matches ReceiptPreview.jsx exactly (it `continue`s
@@ -756,6 +766,8 @@ class EscPosFormatter:
                 # branch-name element anywhere in CustomerReceipt.
                 name = str(template.get("restaurantName") or data.company_name)
                 push("header", self._styled_line(template, "restaurantName", name))
+                for contact in data.delivery_contacts():
+                    push("header", self._wrapped_centered(contact))
             elif block == "orderNumber":
                 # Two separate rows (same style), matching ReceiptPreview.jsx:
                 # infoRow("orderNumber", "Номер заказа:", …) and
