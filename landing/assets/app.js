@@ -240,9 +240,45 @@
     });
   });
 
+  /* ---------- legal: reading progress + toc ---------- */
+  var progressBar = $('.doc-progress i');
+  var doc = $('.doc');
+  if (progressBar && doc) {
+    var updateProgress = function () {
+      var start = doc.getBoundingClientRect().top + window.scrollY - 140;
+      var end = start + doc.offsetHeight - window.innerHeight * 0.55;
+      var p = end > start ? (window.scrollY - start) / (end - start) : 0;
+      progressBar.style.width = Math.max(0, Math.min(1, p)) * 100 + '%';
+    };
+    updateProgress();
+    window.addEventListener('scroll', updateProgress, { passive: true });
+    window.addEventListener('resize', updateProgress);
+  }
+
+  var tocLinks = $$('.doc-toc a[href^="#"]');
+  if (tocLinks.length && 'IntersectionObserver' in window) {
+    var tocById = {};
+    tocLinks.forEach(function (link) {
+      tocById[link.getAttribute('href').slice(1)] = link;
+    });
+    var tocIO = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        var current = tocById[entry.target.id];
+        tocLinks.forEach(function (link) {
+          var on = link === current;
+          link.classList.toggle('is-active', on);
+          if (on) link.setAttribute('aria-current', 'location');
+          else link.removeAttribute('aria-current');
+        });
+      });
+    }, { rootMargin: '-18% 0px -68% 0px' });
+    $$('.doc section[id]').forEach(function (section) { tocIO.observe(section); });
+  }
+
   /* ---------- reveals ---------- */
   var revealEls = $$('.reveal');
-  var titleEls = $$('.hero h1, .h2');
+  var titleEls = $$('.hero h1, .h2, .legal-hero h1');
 
   function showAll() {
     revealEls.concat(titleEls).forEach(function (el) { el.classList.add('in'); });
