@@ -22,11 +22,13 @@
   var burger = $('.burger');
   var mobileMenu = $('#mobileMenu');
   var lastFocus = null;
+  var menuLabelOpen = (burger && burger.dataset.labelOpen) || 'Открыть меню';
+  var menuLabelClose = (burger && burger.dataset.labelClose) || 'Закрыть меню';
 
   function setMenu(open) {
     document.body.classList.toggle('menu-open', open);
     burger.setAttribute('aria-expanded', String(open));
-    burger.setAttribute('aria-label', open ? 'Закрыть меню' : 'Открыть меню');
+    burger.setAttribute('aria-label', open ? menuLabelClose : menuLabelOpen);
     mobileMenu.setAttribute('aria-hidden', String(!open));
     if (open) {
       lastFocus = document.activeElement;
@@ -53,7 +55,7 @@
   /* ---------- Asia/Tashkent clock ---------- */
   var clockFmt;
   try {
-    clockFmt = new Intl.DateTimeFormat('ru-RU', {
+    clockFmt = new Intl.DateTimeFormat(document.documentElement.lang || 'ru-RU', {
       timeZone: 'Asia/Tashkent',
       hour: '2-digit',
       minute: '2-digit',

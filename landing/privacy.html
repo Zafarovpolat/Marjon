@@ -7,6 +7,9 @@
 <meta name="description" content="Политика конфиденциальности Marjon: какие данные собирает платформа и мобильные приложения, как они используются и хранятся." />
 <meta name="theme-color" content="#f2f0e8" />
 <link rel="canonical" href="https://marjon.tech/privacy.html" />
+<link rel="alternate" hreflang="ru" href="https://marjon.tech/privacy.html" />
+<link rel="alternate" hreflang="uz" href="https://marjon.tech/uz/privacy.html" />
+<link rel="alternate" hreflang="x-default" href="https://marjon.tech/privacy.html" />
 <link rel="icon" type="image/svg+xml" href="assets/mark.svg" />
 <link rel="apple-touch-icon" href="assets/icon-512.png" />
 
@@ -34,7 +37,16 @@
 
 <svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   <symbol id="i-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 17.5 17.5 6.5M8 6.5h9.5V16"/></symbol>
-  <symbol id="i-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 19V6.8c0-.7.9-1 1.3-.4L12 14l6.2-7.6c.4-.6 1.3-.3 1.3.4V19"/><path d="M12 14v5"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-brand" viewBox="55 370 430 290">
+    <defs>
+      <linearGradient id="mj-t1" x1="92" y1="610" x2="302" y2="402" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#14B8A6"/><stop offset="1" stop-color="#11AAA4"/></linearGradient>
+      <linearGradient id="mj-t2" x1="246" y1="610" x2="453" y2="402" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#43CEC7"/><stop offset="1" stop-color="#67D8D2"/></linearGradient>
+    </defs>
+    <rect x="39.71" y="472.12" width="316.08" height="86.27" rx="43.135" transform="rotate(-45 197.75 515.25)" fill="url(#mj-t1)"/>
+    <rect x="193.39" y="472.61" width="314.75" height="85.29" rx="42.645" transform="rotate(-45.44 350.76 515.25)" fill="url(#mj-t2)"/>
+    <path d="M461 525C466 526 470 531 470 537L470 599C470 616 461 629 445 636C434 641 420 641 408 635C394 628 386 615 386 600C386 589 390 580 398 571L439 530C445 524 453 522 461 525Z" fill="currentColor"/>
+  </symbol>
   <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5.5c0 4.6 3 7.7 7 9.5 4-1.8 7-4.9 7-9.5V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></symbol>
 </svg>
 
@@ -43,7 +55,7 @@
 <div class="nav-wrap">
   <nav class="nav" aria-label="Основная навигация">
     <a class="brand" href="index.html" aria-label="Marjon — на главную">
-      <span class="brand-mark"><svg aria-hidden="true"><use href="#i-logo"/></svg></span>
+      <span class="brand-mark" aria-hidden="true"><svg aria-hidden="true" focusable="false"><use href="#i-brand"/></svg></span>
       <span>Marjon</span><sup>UZ</sup>
     </a>
     <div class="nav-links">
@@ -52,13 +64,18 @@
       <a href="index.html#platforms">Платформы</a>
       <a href="index.html#faq">Вопросы</a>
     </div>
-    <div class="nav-cta">
+    <div class="nav-tools">
+      <div class="lang-switch" role="group" aria-label="Язык сайта">
+        <a href="/privacy.html" hreflang="ru" lang="ru" class="is-active" aria-current="page">RU</a>
+        <a href="/uz/privacy.html" hreflang="uz" lang="uz">UZ</a>
+      </div>
+      <a class="nav-login" href="https://admin.marjon.tech/login">Войти</a>
       <a class="btn btn-primary btn-sm" href="index.html#contact">
         Подключить
         <span class="arr"><svg aria-hidden="true"><use href="#i-arr"/></svg></span>
       </a>
     </div>
-    <button class="burger" type="button" aria-label="Открыть меню" aria-expanded="false" aria-controls="mobileMenu">
+    <button class="burger" type="button" aria-label="Открыть меню" aria-expanded="false" aria-controls="mobileMenu" data-label-open="Открыть меню" data-label-close="Закрыть меню">
       <span></span><span></span><span></span>
     </button>
   </nav>
@@ -75,13 +92,25 @@
     <a href="index.html#contact"><span>06</span>Подключить</a>
   </div>
   <div class="mm-foot">
-    <a class="btn btn-primary" href="mailto:support@marjon.tech?subject=Вопрос%20по%20данным">
-      Написать нам
-      <span class="arr"><svg aria-hidden="true"><use href="#i-arr"/></svg></span>
-    </a>
-    <div class="mono-label">
-      Ташкент · Asia/Tashkent<br />
-      <a href="mailto:support@marjon.tech">support@marjon.tech</a>
+    <div class="mm-actions">
+      <a class="btn btn-primary" href="mailto:support@marjon.tech?subject=Вопрос%20по%20данным">
+        Написать нам
+        <span class="arr"><svg aria-hidden="true"><use href="#i-arr"/></svg></span>
+      </a>
+      <a class="btn btn-ghost" href="https://admin.marjon.tech/login">
+        Войти в панель
+        <span class="arr"><svg aria-hidden="true"><use href="#i-right"/></svg></span>
+      </a>
+    </div>
+    <div class="mm-aside">
+      <div class="lang-switch" role="group" aria-label="Язык сайта">
+        <a href="/privacy.html" hreflang="ru" lang="ru" class="is-active" aria-current="page">RU</a>
+        <a href="/uz/privacy.html" hreflang="uz" lang="uz">UZ</a>
+      </div>
+      <div class="mono-label">
+        Ташкент · Asia/Tashkent<br />
+        <a href="mailto:support@marjon.tech">support@marjon.tech</a>
+      </div>
     </div>
   </div>
 </div>
@@ -227,7 +256,7 @@
     <div class="footer-grid">
       <div class="foot-brand">
         <a class="brand" href="index.html" aria-label="Marjon — на главную">
-          <span class="brand-mark"><svg aria-hidden="true"><use href="#i-logo"/></svg></span>
+          <span class="brand-mark" aria-hidden="true"><svg aria-hidden="true" focusable="false"><use href="#i-brand"/></svg></span>
           <span class="brand-word">Marjon</span><sup>UZ</sup>
         </a>
         <p>Платформа для автоматизации кафе и ресторанов Узбекистана: касса, кухня, склад, финансы и фискализация.</p>
@@ -249,6 +278,7 @@
         <h3>Контакты</h3>
         <a href="mailto:support@marjon.tech">support@marjon.tech</a>
         <a href="https://marjon.tech/">marjon.tech</a>
+        <a href="https://admin.marjon.tech/login">Вход в панель</a>
         <a href="index.html#top">Ташкент · Asia/Tashkent</a>
       </div>
     </div>
