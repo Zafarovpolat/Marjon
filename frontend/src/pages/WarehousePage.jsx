@@ -2952,8 +2952,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
             </div>
           </header>
           {loading ? <div className="warehouse-empty-cell" role="status">{t("pages.warehousepage.zagruzka_skladskih_dannyh")}</div> : null}
-          {error ? <div className="login-error" role="alert">{error}</div> : null}
-          {!loading && !error ? (
+          {!loading ? (
             <div className={`settings-table-wrapper dish-grid-wrap${isEmpty ? " is-empty" : ""}`}>
               <div className="dish-grid-scroll" role="region" aria-label={t("pages.warehousepage.ostatki_po_skladam_s_prokrutkoy")} tabIndex={0}>
                 <table className="settings-table dish-grid-table warehouse-stock-table" aria-label={t("pages.warehousepage.ostatok_po_skladam")}>
@@ -3039,6 +3038,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
               ) : null}
             </div>
           ) : null}
+          {!loading && error ? <div className="warehouse-empty-cell" role="alert">{error}</div> : null}
         </section>
         {whModal ? (
           <WarehouseModal
@@ -3121,7 +3121,6 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
           </div>
         </header>
         {loading ? <div className="warehouse-empty-cell" role="status">{t("pages.warehousepage.zagruzka_skladskih_dannyh")}</div> : null}
-        {error ? <div className="login-error" role="alert">{error}</div> : null}
         {!loading && !error && detail ? (
           <div className="settings-table-wrapper dish-grid-wrap">
             <div className="dish-grid-scroll" role="region" aria-label={regionLabel} tabIndex={0}>
@@ -3170,6 +3169,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
             </div>
           </div>
         ) : null}
+        {!loading && error ? <div className="warehouse-empty-cell" role="alert">{error}</div> : null}
       </section>
       {drawer || null}
     </section>
@@ -3251,8 +3251,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
           </div>
         </header>
         {loading ? <div className="warehouse-empty-cell" role="status">{t("pages.warehousepage.zagruzka_skladskih_dannyh")}</div> : null}
-        {error ? <div className="login-error" role="alert">{error}</div> : null}
-        {!loading && !error ? (
+        {!loading ? (
           <div className={`settings-table-wrapper dish-grid-wrap${inventoryEmpty ? " is-empty" : ""}`}>
             <div className="dish-grid-scroll" role="region" aria-label={t("pages.warehousepage.inventarizatsiya_po_skladam_s_prokrutkoy")} tabIndex={0}>
               <table className="settings-table dish-grid-table warehouse-stock-table" aria-label={t("pages.warehousepage.inventarizatsiya_po_skladam")}>
@@ -3305,6 +3304,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
             ) : null}
           </div>
         ) : null}
+        {!loading && error ? <div className="warehouse-empty-cell" role="alert">{error}</div> : null}
       </section>
     );
     return (
@@ -3323,8 +3323,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
             </div>
           </header>
           {loading ? <div className="warehouse-empty-cell" role="status">{t("pages.warehousepage.zagruzka_skladskih_dannyh")}</div> : null}
-          {error ? <div className="login-error" role="alert">{error}</div> : null}
-          {!loading && !error ? (
+          {!loading ? (
             <div className={`settings-table-wrapper dish-grid-wrap${incomingEmpty ? " is-empty" : ""}`}>
               <div className="dish-grid-scroll" role="region" aria-label={t("pages.warehousepage.prihody_po_skladam_s_prokrutkoy")} tabIndex={0}>
                 <table className="settings-table dish-grid-table warehouse-stock-table" aria-label={t("pages.warehousepage.prihod_po_skladam")}>
@@ -3377,6 +3376,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
               ) : null}
             </div>
           ) : null}
+          {!loading && error ? <div className="warehouse-empty-cell" role="alert">{error}</div> : null}
         </section>
         {incomingInventoryCard}
         {incomingDrawer}
@@ -3407,8 +3407,8 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
             </div>
           </header>
           {invLoading ? <div className="warehouse-empty-cell" role="status">{t("pages.warehousepage.zagruzka_skladskih_dannyh")}</div> : null}
-          {invError ? <div className="login-error" role="alert">{invError}</div> : null}
-          {!invLoading && !invError ? renderInventoryTable(t("pages.warehousepage.inventarizatsiya")) : null}
+          {!invLoading ? renderInventoryTable(t("pages.warehousepage.inventarizatsiya")) : null}
+          {!invLoading && invError ? <div className="warehouse-empty-cell" role="alert">{invError}</div> : null}
         </section>
         {inventoryModal}
         {detailCheck ? (
@@ -3452,8 +3452,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
             </div>
           </header>
           {loading ? <div className="warehouse-empty-cell" role="status">{t("pages.warehousepage.zagruzka_skladskih_dannyh")}</div> : null}
-          {error ? <div className="login-error" role="alert">{error}</div> : null}
-          {!loading && !error ? (
+          {!loading ? (
             <div className={`settings-table-wrapper dish-grid-wrap${wasteEmpty ? " is-empty" : ""}`}>
               <div className="dish-grid-scroll" role="region" aria-label={t("pages.warehousepage.othod_tovarov_s_prokrutkoy")} tabIndex={0}>
                 <table className="settings-table dish-grid-table warehouse-journal-table wh-inventory-table wh-waste-table" aria-label={t("pages.warehousepage.othod_tovarov")}>
@@ -3492,6 +3491,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
               ) : null}
             </div>
           ) : null}
+          {!loading && error ? <div className="warehouse-empty-cell" role="alert">{error}</div> : null}
         </section>
       </section>
     );
@@ -3667,7 +3667,6 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
           </div>
         </header>
         {loading ? <div className="warehouse-empty-cell" role="status">{t("pages.warehousepage.zagruzka_skladskih_dannyh")}</div> : null}
-        {error ? <div className="login-error" role="alert">{error}</div> : null}
         {!loading && !error && detail ? (
           <div className="settings-table-wrapper dish-grid-wrap">
             <div className="dish-grid-scroll" role="region" aria-label={regionLabel} tabIndex={0}>
@@ -3716,6 +3715,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
             </div>
           </div>
         ) : null}
+        {!loading && error ? <div className="warehouse-empty-cell" role="alert">{error}</div> : null}
       </section>
     </section>
   );
@@ -3777,8 +3777,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
           </div>
         </header>
         {loading ? <div className="warehouse-empty-cell" role="status">{t("pages.warehousepage.zagruzka_skladskih_dannyh")}</div> : null}
-        {error ? <div className="login-error" role="alert">{error}</div> : null}
-        {!loading && !error ? (
+        {!loading ? (
           <div className={`settings-table-wrapper dish-grid-wrap${expenseInventoryEmpty ? " is-empty" : ""}`}>
             <div className="dish-grid-scroll" role="region" aria-label={t("pages.warehousepage.inventarizatsiya_rashodov_po_skladam_s_prokrutkoy")} tabIndex={0}>
               <table className="settings-table dish-grid-table warehouse-stock-table" aria-label={t("pages.warehousepage.inventarizatsiya_rashodov_po_skladam")}>
@@ -3831,6 +3830,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
             ) : null}
           </div>
         ) : null}
+        {!loading && error ? <div className="warehouse-empty-cell" role="alert">{error}</div> : null}
       </section>
     );
     return (
@@ -3849,10 +3849,8 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
             </div>
           </header>
           {loading ? <div className="warehouse-empty-cell" role="status">{t("pages.warehousepage.zagruzka_skladskih_dannyh")}</div> : null}
-          {error ? <div className="login-error" role="alert">{error}</div> : null}
-          {!loading && !error ? (
+          {!loading ? (
             <div className={`settings-table-wrapper dish-grid-wrap${outgoingEmpty ? " is-empty" : ""}`}>
-              {saleError ? <div className="login-error" role="alert">{saleError}</div> : null}
               {!persistedOutgoing && !saleError ? <div role="status">{t("pages.warehousepage.zagruzka_fakticheskogo_rashoda")}</div> : null}
               <div className="dish-grid-scroll" role="region" aria-label={t("pages.warehousepage.rashody_po_skladam_s_prokrutkoy")} tabIndex={0}>
                 <table className="settings-table dish-grid-table warehouse-stock-table" aria-label={t("pages.warehousepage.rashod_po_skladam")}>
@@ -3905,6 +3903,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
               ) : null}
             </div>
           ) : null}
+          {!loading && (error || saleError) ? <div className="warehouse-empty-cell" role="alert">{error || saleError}</div> : null}
         </section>
         {outgoingInventoryCard}
       </section>
@@ -4233,8 +4232,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
             </div>
           </header>
           {loading ? <div className="warehouse-empty-cell" role="status">{t("pages.warehousepage.zagruzka_skladskih_dannyh")}</div> : null}
-          {error ? <div className="login-error" role="alert">{error}</div> : null}
-          {!loading && !error ? (
+          {!loading ? (
             <div className={`settings-table-wrapper dish-grid-wrap${journalEmpty ? " is-empty" : ""}`}>
               <div className="dish-grid-scroll" role="region" aria-label={t("pages.warehousepage.tablitsa_prihodov_s_prokrutkoy")} tabIndex={0}>
                 <table className="settings-table dish-grid-table warehouse-journal-table" aria-label={t("pages.warehousepage.dobavit_produktov")}>
@@ -4293,6 +4291,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
               ) : null}
             </div>
           ) : null}
+          {!loading && error ? <div className="warehouse-empty-cell" role="alert">{error}</div> : null}
         </section>
       </section>
     );
@@ -4301,7 +4300,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
   return (
     <div className="warehouse-page">
       <section className="warehouse-card">
-        {loading ? <div className="warehouse-empty-cell" role="status">{t("pages.warehousepage.zagruzka_skladskih_dannyh")}</div> : null}        {error ? <div className="login-error" role="alert">{error}</div> : null}
+        {loading ? <div className="warehouse-empty-cell" role="status">{t("pages.warehousepage.zagruzka_skladskih_dannyh")}</div> : null}
         <header className="warehouse-header">
           <div className="warehouse-title-group">
             <span className="warehouse-accent-bar" />
@@ -4384,6 +4383,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
             </tbody>
           </table>
         </div>
+        {!loading && error ? <div className="warehouse-empty-cell" role="alert">{error}</div> : null}
 
         <footer className="warehouse-pagination">
           <span>{t("pages.warehousepage.pokazano_1")} {Math.min(visibleRows.length, 10)} {t("pages.warehousepage.iz")} {visibleRows.length}</span>

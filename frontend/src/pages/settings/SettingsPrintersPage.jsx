@@ -198,7 +198,7 @@ function SettingsPrintersPage() {
   };
 
   return (
-    <div className="settings-page settings-owner-view printers-page">
+    <div className="settings-page settings-owner-view settings-staff-view printers-page">
       <section className="settings-card">
         <header className="settings-header">
           <div className="settings-title-group">

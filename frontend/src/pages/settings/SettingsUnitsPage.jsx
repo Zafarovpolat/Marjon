@@ -214,7 +214,7 @@ function SettingsUnitsPage() {
   };
 
   return (
-    <div className="settings-page settings-owner-view units-page">
+    <div className="settings-page settings-owner-view settings-staff-view units-page">
       <section className="settings-card">
         <header className="settings-header">
           <div className="settings-title-group">
@@ -225,7 +225,10 @@ function SettingsUnitsPage() {
             </div>
           </div>
           <div className="settings-actions">
-            <button type="button" onClick={openAdd}>{t("pages.settings.settingsunitspage.dobavit_edinitsu_izmereniya")}</button>
+            <button type="button" onClick={openAdd}>
+              <Icon name="bi-plus" size={18} aria-hidden="true" />
+              {t("pages.settings.settingsunitspage.dobavit_edinitsu_izmereniya")}
+            </button>
           </div>
         </header>
 

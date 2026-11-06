@@ -822,7 +822,10 @@ export default function SettingsPlacesPage() {
             </div>
           </div>
           <div className="settings-actions">
-            <button type="button" onClick={openAddHall}>{tr("pages.settings.settingsplacespage.dobavit_mesto")}</button>
+            <button type="button" onClick={openAddHall}>
+              <Icon name="bi-plus" size={18} aria-hidden="true" />
+              {tr("pages.settings.settingsplacespage.dobavit_mesto")}
+            </button>
           </div>
         </header>
         {loading ? (
@@ -894,7 +897,8 @@ export default function SettingsPlacesPage() {
               disabled={!hallIsActive}
               title={hallIsActive ? undefined : "Сначала активируйте место"}
             >
-             {tr("pages.settings.settingsplacespage.dobavit_stol")}
+              <Icon name="bi-plus" size={18} aria-hidden="true" />
+              {tr("pages.settings.settingsplacespage.dobavit_stol")}
             </button>
           </div>
         </header>
@@ -947,7 +951,7 @@ export default function SettingsPlacesPage() {
   // fade+rise (no geometry, no overlay, no timers). Reduced motion disables
   // it via media query; navigation itself is always immediate URL truth.
   return (
-    <div className="settings-page settings-places-page settings-owner-view">
+    <div className="settings-page settings-places-page settings-owner-view settings-staff-view">
       <section className="settings-card">
         <div key={inTablesView ? "tables" : "places"} className={viewSwitched ? "settings-view-fade" : undefined}>
           {inTablesView ? renderTablesView() : renderPlaces()}

@@ -1664,3 +1664,225 @@
     margin-left: 0;
   }
 }
+
+/* ============================================================
+   SETTINGS ↔ STAFF-CASHIER VISUAL PARITY (unlayered, scoped).
+   Applies to the Settings tabs from «Клиенты» through
+   «Настройка принтеров» only: the wrapper carries
+   .settings-staff-view. Geometry is copied 1:1 from the approved
+   /users/cashier page (.staff-card--cashier, .staff-header--cashier,
+   .staff-add-button--cashier and the staff role table), so the
+   white panel, its inner padding, title rhythm, controls and row
+   density stay identical across both sections.
+   ============================================================ */
+.dashboard-content:has(.settings-staff-view) {
+  padding: 14px 16px 16px;
+}
+
+.settings-staff-view {
+  padding: 0;
+}
+
+.settings-staff-view .settings-card {
+  min-height: 0;
+  padding: 22px;
+  border: 1px solid rgba(15, 35, 60, 0.09);
+  border-radius: 18px;
+  background: var(--color-card, #ffffff);
+  box-shadow: 0 3px 12px rgba(15, 35, 60, 0.055);
+}
+
+.settings-staff-view .settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.settings-staff-view .settings-title-group {
+  align-items: center;
+  gap: 14px;
+}
+
+.settings-staff-view .settings-accent-bar {
+  width: 8px;
+  min-width: 8px;
+  height: 44px;
+  margin: 0;
+  border-radius: 999px;
+  background: #16c6c8;
+  box-shadow: 0 8px 17px rgba(37, 99, 235, 0.154);
+}
+
+.settings-staff-view .settings-title-group p {
+  margin: 0 0 4px;
+  color: #0f99b8;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.settings-staff-view .settings-title-group h1 {
+  margin: 0;
+  font-size: clamp(24px, 2.4vw, 28px);
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+/* Header CTA = cashier teal pill (43px, 22px radius, 13px/700). */
+.settings-staff-view .settings-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.settings-staff-view .settings-actions button {
+  min-height: 43px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 22px;
+  background: #1FC9C9;
+  box-shadow: 0 8px 18px rgba(31, 201, 201, 0.28);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.settings-staff-view .settings-actions button:hover:not(:disabled) {
+  background: #1AB5B5;
+}
+
+.settings-staff-view .settings-actions button:active:not(:disabled) {
+  background: #159898;
+}
+
+.settings-staff-view .settings-actions button:focus-visible {
+  outline: 2px solid #1FC9C9;
+  outline-offset: 2px;
+}
+
+.settings-staff-view .settings-actions button:disabled {
+  background: #9adede;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* Status tabs keep the cashier sliding-pill geometry. */
+.settings-staff-view .settings-tabs {
+  padding: 4px;
+  border-radius: 22px;
+}
+
+.settings-staff-view .settings-tabs button {
+  min-height: 33px;
+  padding: 0 12px;
+  border-radius: 22px;
+  font-size: 13px;
+}
+
+/* Table density matches the cashier role table (12px/14px cells). */
+.settings-staff-view .settings-table-wrapper,
+.settings-staff-view .staff-table-wrapper {
+  border-radius: 20px;
+}
+
+.settings-staff-view .settings-table th,
+.settings-staff-view .settings-table td,
+.settings-staff-view .staff-table th,
+.settings-staff-view .staff-table td {
+  padding: 12px 14px;
+}
+
+.settings-staff-view .settings-table th:first-child,
+.settings-staff-view .staff-table th:first-child {
+  border-top-left-radius: 20px;
+}
+
+.settings-staff-view .settings-table th:last-child,
+.settings-staff-view .staff-table th:last-child {
+  border-top-right-radius: 20px;
+}
+
+/* Status language of the cashier table: dot + text, no chrome. */
+.settings-staff-view .settings-status-badge {
+  gap: 7px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.settings-staff-view .settings-status-badge.is-active {
+  color: #00dc3b;
+}
+
+.settings-staff-view .settings-status-badge.is-inactive {
+  color: var(--color-danger, #ef4444);
+}
+
+.settings-staff-view .settings-status-badge.is-pending {
+  color: #f97316;
+}
+
+.settings-staff-view .settings-status-badge__dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+@media (max-width: 768px) {
+  .settings-staff-view .settings-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .settings-staff-view .settings-actions {
+    flex-wrap: wrap;
+  }
+
+  .settings-staff-view .settings-actions button {
+    width: 100%;
+  }
+}
+
+/* Clients header stays on the cashier one-row rhythm: the search field
+   absorbs the spare width instead of pushing the CTA out of the panel. */
+.settings-staff-view .staff-header__actions {
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: nowrap;
+}
+
+.settings-staff-view .clients-toolbar {
+  min-width: min-content;
+  flex: 1 1 auto;
+  justify-content: flex-end;
+}
+
+.settings-staff-view .staff-header__actions .sidebar-search__field {
+  width: auto;
+  flex: 0 1 216px;
+  min-width: 120px;
+}
+
+.settings-staff-view .settings-header > .settings-title-group {
+  flex: 0 0 auto;
+  min-width: max-content;
+}
+
+/* When the header controls cannot share one row with the title (Clients has
+   four tabs + search + CTA), they wrap as a right-aligned group instead of
+   spilling out of the panel. Wide screens keep the cashier single row. */
+.settings-staff-view .settings-header {
+  flex-wrap: wrap;
+}

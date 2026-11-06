@@ -128,7 +128,7 @@ function SettingsBranchesPage() {
 
   // PLACEHOLDER_RENDER
   return (
-    <div className="settings-page">
+    <div className="settings-page settings-staff-view">
       <section className="settings-card">
         <header className="settings-header">
           <div className="settings-title-group">
@@ -139,7 +139,10 @@ function SettingsBranchesPage() {
             </div>
           </div>
           <div className="settings-actions">
-            <button type="button" onClick={openAdd}>{t("pages.settings.settingsbranchespage.dobavit")}</button>
+            <button type="button" onClick={openAdd}>
+              <Icon name="bi-plus" size={18} aria-hidden="true" />
+              {t("pages.settings.settingsbranchespage.dobavit")}
+            </button>
           </div>
         </header>
 

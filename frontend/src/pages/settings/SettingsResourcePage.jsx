@@ -766,7 +766,7 @@ function SettingsResourcePage({
   };
 
   return (
-    <div className={`settings-page ${staffVariant ? "settings-owner-view" : ""} ${pageClassName}`.trim().replace(/\s+/g, " ")}>
+    <div className={`settings-page ${staffVariant ? "settings-owner-view settings-staff-view" : ""} ${pageClassName}`.trim().replace(/\s+/g, " ")}>
       <section className="settings-card">
         {compactHeader ? (
           <header className="settings-directory-toolbar">

@@ -246,7 +246,7 @@ function SettingsPaymentMethodsPage() {
   };
 
   return (
-    <div className="settings-page settings-owner-view payment-methods-page">
+    <div className="settings-page settings-owner-view settings-staff-view payment-methods-page">
       <section className="settings-card">
         <header className="settings-header">
           <div className="settings-title-group">
@@ -257,7 +257,10 @@ function SettingsPaymentMethodsPage() {
             </div>
           </div>
           <div className="settings-actions">
-            <button type="button" onClick={openAdd}>{t("pages.settings.settingspaymentmethodspage.dobavit_sposob_oplaty")}</button>
+            <button type="button" onClick={openAdd}>
+              <Icon name="bi-plus" size={18} aria-hidden="true" />
+              {t("pages.settings.settingspaymentmethodspage.dobavit_sposob_oplaty")}
+            </button>
           </div>
         </header>
 
